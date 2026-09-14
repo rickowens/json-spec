@@ -38,10 +38,12 @@ library
   import: dependencies, warnings
   exposed-modules:
     Data.JsonSpec
-  other-modules:       
-    Data.JsonSpec.Encode
-    Data.JsonSpec.Decode
+    Data.JsonSpec.Codec.Tuple
+  other-modules:
     Data.JsonSpec.Spec
+    Data.JsonSpec.Codec.Tuple.Internal
+    Data.JsonSpec.Codec.Tuple.Decode
+    Data.JsonSpec.Codec.Tuple.Encode
   -- other-extensions:    
   hs-source-dirs:      src
   default-language:    Haskell2010

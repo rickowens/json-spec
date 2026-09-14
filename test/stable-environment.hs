@@ -17,9 +17,10 @@
 module Main (main) where
 
 import Data.JsonSpec
-  ( HasJsonEncodingSpec(EncodingSpec, toJsonStructure), Ref(Ref)
+  ( HasJsonEncodingSpec(EncodingSpec)
   , Specification(JsonLet, JsonRef, JsonString)
   )
+import Data.JsonSpec.Codec.Tuple (Ref(Ref), TupleEncoding(toJsonStructure))
 import Data.Text (Text)
 import Prelude (Applicative(pure), ($), (.), Eq, IO, Ord)
 
@@ -60,6 +61,7 @@ newtype Foo = Foo Baz
 instance HasJsonEncodingSpec Foo where
   type EncodingSpec Foo =
     TestShared "Foo"
+instance TupleEncoding Foo where
   toJsonStructure (Foo val) =
     Ref . Ref . toJsonStructure $ val
 
@@ -72,6 +74,7 @@ newtype Baz = Baz Text
 instance HasJsonEncodingSpec Baz where
   type EncodingSpec Baz =
     TestShared "Baz"
+instance TupleEncoding Baz where
   toJsonStructure (Baz val) = Ref val
 
 

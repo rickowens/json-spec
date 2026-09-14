@@ -7,10 +7,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- | Decoding using specs. -}
-module Data.JsonSpec.Decode (
+{- | Tuple-structure decoding for specs. -}
+module Data.JsonSpec.Codec.Tuple.Decode (
   StructureFromJson(..),
-  HasJsonDecodingSpec(..),
+  TupleDecoding(..),
   eitherDecode,
 ) where
 
@@ -19,8 +19,9 @@ import Data.Aeson.Types
   ( FromJSON(parseJSON), Value(Null, Object), Parser, parseEither, withArray
   , withObject, withScientific, withText
   )
-import Data.JsonSpec.Spec
-  ( Field(Field), Ref(Ref), Tag(Tag), JStruct, JsonStructure, Specification, sym
+import Data.JsonSpec.Spec (HasJsonDecodingSpec(DecodingSpec), Specification)
+import Data.JsonSpec.Codec.Tuple.Internal
+  ( Field(Field), Ref(Ref), Tag(Tag), JStruct, JsonStructure, sym
   )
 import Data.Map (Map)
 import Data.Proxy (Proxy)
@@ -39,23 +40,19 @@ import qualified Data.Map as Map
 import qualified Data.Vector as Vector
 
 {- |
-  Types of this class can be JSON decoded according to a type-level
-  'Specification'.
--}
-class HasJsonDecodingSpec a where
-  {- | The decoding 'Specification'. -}
-  type DecodingSpec a :: Specification
+  Decode a value from the structure appropriate for its specification.
 
-  {- |
-    Given the structural encoding of the JSON data, parse the structure
-    into the final type. The reason this returns a @'Parser' a@ instead of
-    just a plain @a@ is because there may still be some invariants of the
-    JSON data that the 'Specification' language is not able to express,
-    and so you may need to fail parsing in those cases. For instance,
-    'Specification' is not powerful enough to express "this field must
-    contain only prime numbers".
-  -}
+  Given the structural encoding of the JSON data, parse the structure
+  into the final type. The reason this returns a @'Parser' a@ instead of
+  just a plain @a@ is because there may still be some invariants of the
+  JSON data that the 'Specification' language is not able to express,
+  and so you may need to fail parsing in those cases. For instance,
+  'Specification' is not powerful enough to express "this field must
+  contain only prime numbers".
+-}
+class (HasJsonDecodingSpec a) => TupleDecoding a where
   fromJsonStructure :: JsonStructure (DecodingSpec a) -> Parser a
+
 
 
 {- |
@@ -71,7 +68,7 @@ class HasJsonDecodingSpec a where
   be sufficient because someone could always write an overlapping (or
   incoherent) 'ToJSON' instance of our newtype! This way we don't have
   to worry about any of that, and the types that the user must deal with
-  when implementing 'fromJSONRepr' can be simple tuples and such.
+  when implementing 'fromJsonRepr' can be simple tuples and such.
 -}
 class StructureFromJson a where
   reprParseJson :: Value -> Parser a
@@ -160,5 +157,3 @@ eitherDecode
   -> Either String (JsonStructure spec)
 eitherDecode _spec =
   parseEither reprParseJson
-
-

@@ -8,21 +8,20 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.JsonSpec.Encode (
-  HasJsonEncodingSpec(..),
+module Data.JsonSpec.Codec.Tuple.Encode (
+  TupleEncoding(..),
   StructureToJson(..),
   encode,
 ) where
 
 import Data.Aeson (ToJSON(toJSON), Value)
-import Data.JsonSpec.Spec
-  ( Field(Field), Ref(unRef), Specification(JsonArray), JStruct, JsonStructure
-  , Tag, sym
+import Data.JsonSpec.Spec (HasJsonEncodingSpec(EncodingSpec))
+import Data.JsonSpec.Codec.Tuple.Internal
+  ( Field(Field), Ref(unRef), JStruct, JsonStructure, Tag, sym
   )
 import Data.Map (Map)
 import Data.Proxy (Proxy(Proxy))
 import Data.Scientific (Scientific)
-import Data.Set (Set)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import GHC.TypeLits (KnownSymbol)
@@ -34,21 +33,14 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as AK
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 
 {- |
-  Types of this class can be encoded to JSON according to a type-level
-  'Specification'.
+  Encode a value into the structure appropriate for its specification.
 -}
-class HasJsonEncodingSpec a where
-  {- | The encoding specification. -}
-  type EncodingSpec a :: Specification
-
+class (HasJsonEncodingSpec a) => TupleEncoding a where
   {- | Encode the value into the structure appropriate for the specification. -}
   toJsonStructure :: a -> JsonStructure (EncodingSpec a)
-instance (HasJsonEncodingSpec a) => HasJsonEncodingSpec (Set a) where
-  type EncodingSpec (Set a) = JsonArray (EncodingSpec a)
-  toJsonStructure = fmap toJsonStructure . Set.toList
+
 
 
 {- |
@@ -138,9 +130,7 @@ instance (KnownSymbol key, StructureToJson val, ToJsonObject more) => ToJsonObje
   Given a raw Haskell structure, directly encode it directly into an
   aeson Value without having to go through any To/FromJSON instances.
 
-  See also: `Data.JsonSpec.eitherDecode`.
+  See also: `Data.JsonSpec.Codec.Tuple.eitherDecode`.
 -}
 encode :: StructureToJson (JsonStructure spec) => Proxy spec -> JsonStructure spec -> Value
 encode Proxy = reprToJson
-
-

@@ -28,16 +28,19 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString.Lazy (ByteString)
 import Data.Either (isLeft)
 import Data.JsonSpec
-  ( Field(Field), FieldSpec(Optional, Required)
-  , HasJsonDecodingSpec(DecodingSpec, fromJsonStructure)
-  , HasJsonEncodingSpec(EncodingSpec, toJsonStructure), Ref(Ref)
-  , SpecJson(SpecJson)
+  ( FieldSpec(Optional, Required), HasJsonDecodingSpec(DecodingSpec)
+  , HasJsonEncodingSpec(EncodingSpec)
   , Specification
     ( JsonAnnotated, JsonArray, JsonBool, JsonDateTime, JsonDict, JsonEither
     , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
     , JsonString, JsonTag
     )
-  , Tag(Tag), eitherDecode, encode, unField, type (:::), type (::?)
+  , type (:::), type (::?)
+  )
+import Data.JsonSpec.Codec.Tuple
+  ( Field(Field), Ref(Ref), SpecJson(SpecJson), Tag(Tag)
+  , TupleDecoding(fromJsonStructure), TupleEncoding(toJsonStructure)
+  , eitherDecode, encode, unField
   )
 import Data.Map (Map)
 import Data.Proxy (Proxy(Proxy))
@@ -881,6 +884,7 @@ instance HasJsonEncodingSpec TestSum where
           Required "tag" (JsonTag "b")
         ]
       ]
+instance TupleEncoding TestSum where
   toJsonStructure = \case
     TestA i t ->
       Left
@@ -899,6 +903,7 @@ instance HasJsonEncodingSpec TestSum where
         )
 instance HasJsonDecodingSpec TestSum where
   type DecodingSpec TestSum = EncodingSpec TestSum
+instance TupleDecoding TestSum where
   fromJsonStructure = \case
     Left
         (Field @"tag" Tag,
@@ -925,6 +930,7 @@ instance HasJsonDecodingSpec TestOptionalHasField where
      '[ "foo" ::? JsonString
       , "bar" ::? JsonNullable JsonString
       ]
+instance TupleDecoding TestOptionalHasField where
   fromJsonStructure v =
     pure
       TestOptionalHasField
@@ -953,6 +959,7 @@ instance HasJsonEncodingSpec TestObj where
         Required "qux" (JsonNullable JsonInt),
         Required "qoo" JsonBool
       ]
+instance TupleEncoding TestObj where
   toJsonStructure TestObj { foo , bar , baz, qux, qoo } =
     (Field @"foo" foo,
     (fmap (Field @"bar" . realToFrac) bar,
@@ -962,6 +969,7 @@ instance HasJsonEncodingSpec TestObj where
     ())))))
 instance HasJsonDecodingSpec TestObj where
   type DecodingSpec TestObj = EncodingSpec TestObj
+instance TupleDecoding TestObj where
   fromJsonStructure
       (Field @"foo" foo,
       (fmap (unField @"bar") -> bar,
@@ -985,12 +993,14 @@ instance HasJsonEncodingSpec TestSubObj where
       '[ Required "foo" JsonString
        , Required "bar" JsonInt
        ]
+instance TupleEncoding TestSubObj where
   toJsonStructure TestSubObj { foo2 , bar2 } =
     (Field @"foo" foo2,
     (Field @"bar" bar2,
     ()))
 instance HasJsonDecodingSpec TestSubObj where
   type DecodingSpec TestSubObj = EncodingSpec TestSubObj
+instance TupleDecoding TestSubObj where
   fromJsonStructure
       (Field @"foo" foo2,
       (Field @"bar" bar2,
@@ -1011,12 +1021,14 @@ instance HasJsonEncodingSpec User where
       '[ Required "name" JsonString
        , Required "last-login" JsonDateTime
        ]
+instance TupleEncoding User where
   toJsonStructure user =
     (Field @"name" (name user),
     (Field @"last-login" (lastLogin user),
     ()))
 instance HasJsonDecodingSpec User where
   type DecodingSpec User = EncodingSpec User
+instance TupleDecoding User where
   fromJsonStructure
       (Field @"name" name,
       (Field @"last-login" lastLogin,
@@ -1039,6 +1051,7 @@ instance HasJsonEncodingSpec Vertex where
        , Required "y" JsonInt
        , Required "z" JsonInt
        ]
+instance TupleEncoding Vertex where
   toJsonStructure Vertex {x, y, z} =
     (Field @"x" x,
     (Field @"y" y,
@@ -1046,6 +1059,7 @@ instance HasJsonEncodingSpec Vertex where
     ())))
 instance HasJsonDecodingSpec Vertex where
   type DecodingSpec Vertex = EncodingSpec Vertex
+instance TupleDecoding Vertex where
   fromJsonStructure
       (Field @"x" x,
       (Field @"y" y,
@@ -1071,6 +1085,7 @@ instance HasJsonEncodingSpec Triangle where
          , Required "vertex2" (JsonRef "Vertex")
          , Required "vertex3" (JsonRef "Vertex")
          ])
+instance TupleEncoding Triangle where
   toJsonStructure Triangle {vertex1, vertex2, vertex3} =
     (Field @"vertex1" (Ref $ toJsonStructure vertex1),
     (Field @"vertex2" (Ref $ toJsonStructure vertex2),
@@ -1078,6 +1093,7 @@ instance HasJsonEncodingSpec Triangle where
     ())))
 instance HasJsonDecodingSpec Triangle where
   type DecodingSpec Triangle = EncodingSpec Triangle
+instance TupleDecoding Triangle where
   fromJsonStructure
       (Field @"vertex1" (Ref rawVertex1),
       (Field @"vertex2" (Ref rawVertex2),
@@ -1107,6 +1123,7 @@ instance HasJsonEncodingSpec LabelledTree where
             )
          ]
         (JsonRef "LabelledTree")
+instance TupleEncoding LabelledTree where
   toJsonStructure LabelledTree {label , children } =
     Ref
       (Field @"label" label,
@@ -1117,6 +1134,7 @@ instance HasJsonEncodingSpec LabelledTree where
       ()))
 instance HasJsonDecodingSpec LabelledTree where
   type DecodingSpec LabelledTree = EncodingSpec LabelledTree
+instance TupleDecoding LabelledTree where
   fromJsonStructure
       (
         Ref
@@ -1146,7 +1164,7 @@ instance HasJsonEncodingSpec TestOptionality where
        , Optional "baz" (JsonNullable JsonInt)
        , Required "qux" JsonInt
        ]
-
+instance TupleEncoding TestOptionality where
   toJsonStructure TestOptionality { toFoo , toBar , toBaz , toQux } =
     (fmap (Field @"foo") toFoo,
     (Field @"bar" toBar,
@@ -1155,7 +1173,7 @@ instance HasJsonEncodingSpec TestOptionality where
     ()))))
 instance HasJsonDecodingSpec TestOptionality where
   type DecodingSpec TestOptionality = EncodingSpec TestOptionality
-
+instance TupleDecoding TestOptionality where
   fromJsonStructure
       (fmap (unField @"foo") -> toFoo,
       (Field @"bar" toBar,
@@ -1183,6 +1201,7 @@ instance HasJsonDecodingSpec TestHasField where
                      ,   "an_int" ::: JsonInt
                      ]
        ]
+instance TupleDecoding TestHasField where
   fromJsonStructure val =
     pure
       TestHasField
@@ -1212,7 +1231,7 @@ instance HasJsonEncodingSpec MRec1 where
       , '("two", JsonArray (JsonRef "one"))
       ]
       (JsonRef "one")
-
+instance TupleEncoding MRec1 where
   toJsonStructure (MRec1 m2s) =
     Ref
       [ Ref (fmap toJsonStructure m1s)
@@ -1220,7 +1239,7 @@ instance HasJsonEncodingSpec MRec1 where
       ]
 instance HasJsonDecodingSpec MRec1 where
   type DecodingSpec MRec1 = EncodingSpec MRec1
-
+instance TupleDecoding MRec1 where
   fromJsonStructure (Ref m2s_) = do
     m2s <-
       traverse
@@ -1257,13 +1276,14 @@ newtype MRec3 = MRec3
 instance HasJsonEncodingSpec MRec3 where
   type EncodingSpec MRec3 =
     JsonLet SharedRecSpecs (JsonRef "three")
-
+instance TupleEncoding MRec3 where
   toJsonStructure MRec3 { foo } =
     Ref
       (Field @"foo" (fmap toJsonStructure foo),
       ())
 instance HasJsonDecodingSpec MRec3 where
   type DecodingSpec MRec3 = EncodingSpec MRec3
+instance TupleDecoding MRec3 where
   fromJsonStructure ( Ref (Field @"foo" rawFoo, ()))
     = do
       foo <- traverse fromJsonStructure rawFoo
@@ -1277,12 +1297,14 @@ newtype MRec4 = MRec4
 instance HasJsonEncodingSpec MRec4 where
   type EncodingSpec MRec4 =
     JsonLet SharedRecSpecs (JsonRef "four")
+instance TupleEncoding MRec4 where
   toJsonStructure MRec4 { bar } =
     Ref
       (Field @"bar" (toJsonStructure bar),
       ())
 instance HasJsonDecodingSpec MRec4 where
   type DecodingSpec MRec4 = EncodingSpec MRec4
+instance TupleDecoding MRec4 where
   fromJsonStructure ( Ref (Field @"bar" rawbar, ()))
     = do
       bar <- fromJsonStructure rawbar
@@ -1310,12 +1332,14 @@ instance HasJsonEncodingSpec AnnotatedUser where
         '[ Required "name" JsonString
          , Required "age" JsonInt
          ])
+instance TupleEncoding AnnotatedUser where
   toJsonStructure AnnotatedUser { auName, auAge } =
     (Field @"name" auName,
     (Field @"age" auAge,
     ()))
 instance HasJsonDecodingSpec AnnotatedUser where
   type DecodingSpec AnnotatedUser = EncodingSpec AnnotatedUser
+instance TupleDecoding AnnotatedUser where
   fromJsonStructure
       (Field @"name" auName,
       (Field @"age" auAge,
@@ -1340,6 +1364,7 @@ instance HasJsonEncodingSpec AnnotatedVertex where
          , Required "y" JsonInt
          , Required "z" JsonInt
          ])
+instance TupleEncoding AnnotatedVertex where
   toJsonStructure AnnotatedVertex { avX, avY, avZ } =
     (Field @"x" avX,
     (Field @"y" avY,
@@ -1347,6 +1372,7 @@ instance HasJsonEncodingSpec AnnotatedVertex where
     ())))
 instance HasJsonDecodingSpec AnnotatedVertex where
   type DecodingSpec AnnotatedVertex = EncodingSpec AnnotatedVertex
+instance TupleDecoding AnnotatedVertex where
   fromJsonStructure
       (Field @"x" avX,
       (Field @"y" avY,
@@ -1382,6 +1408,7 @@ instance HasJsonEncodingSpec AnnotatedTriangle where
            , Required "vertex2" (JsonRef "Vertex")
            , Required "vertex3" (JsonRef "Vertex")
            ]))
+instance TupleEncoding AnnotatedTriangle where
   toJsonStructure AnnotatedTriangle { atVertex1, atVertex2, atVertex3 } =
     (Field @"vertex1" (Ref $ toJsonStructure atVertex1),
     (Field @"vertex2" (Ref $ toJsonStructure atVertex2),
@@ -1389,6 +1416,7 @@ instance HasJsonEncodingSpec AnnotatedTriangle where
     ())))
 instance HasJsonDecodingSpec AnnotatedTriangle where
   type DecodingSpec AnnotatedTriangle = EncodingSpec AnnotatedTriangle
+instance TupleDecoding AnnotatedTriangle where
   fromJsonStructure
       (Field @"vertex1" (Ref rawVertex1),
       (Field @"vertex2" (Ref rawVertex2),
@@ -1413,11 +1441,13 @@ instance HasJsonEncodingSpec AnnotatedWithBool where
        , '("deprecated", 'False)
        ]
       (JsonObject '[ Required "name" JsonString ])
+instance TupleEncoding AnnotatedWithBool where
   toJsonStructure AnnotatedWithBool { awbName } =
     (Field @"name" awbName,
     ())
 instance HasJsonDecodingSpec AnnotatedWithBool where
   type DecodingSpec AnnotatedWithBool = EncodingSpec AnnotatedWithBool
+instance TupleDecoding AnnotatedWithBool where
   fromJsonStructure
       (Field @"name" awbName,
       ())

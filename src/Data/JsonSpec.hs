@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 
 {-|
@@ -21,12 +18,14 @@
   >       Required "name" JsonString,
   >       Required "last-login" JsonDateTime
   >     ]
+  > instance TupleEncoding User where
   >   toJsonStructure user =
   >     (Field @"name" (name user),
   >     (Field @"last-login" (lastLogin user),
   >     ()))
   > instance HasJsonDecodingSpec User where
   >   type DecodingSpec User = EncodingSpec User
+  > instance TupleDecoding User where
   >   fromJsonStructure
   >       (Field @"name" name,
   >       (Field @"last-login" lastLogin,
@@ -67,6 +66,9 @@
   is still pretty new, but it at least includes OpenApi compatibility
   (i.e. ToSchema instances) and Elm code generation.
 
+  For the tuple-based encoding/decoding interpretation of a
+  'Specification', see "Data.JsonSpec.Codec.Tuple".
+
 -}
 module Data.JsonSpec (
   -- * Writing specifications
@@ -75,70 +77,19 @@ module Data.JsonSpec (
   (::?),
   FieldSpec(..),
 
-  -- * Encoding/decoding via a Specification
+  -- * Associating a type with a Specification
   HasJsonEncodingSpec(..),
   HasJsonDecodingSpec(..),
-  SpecJson(..),
-  Tag(..),
-  Field(..),
-  unField,
-  Ref(..),
-
-  -- * Direct encoding/decoding
-  eitherDecode,
-  encode,
-
-  -- * Other stuff
-  {-|
-    The items in this section are mainly exported because once in a
-    while you might need to include them in a type signature, but they
-    are not intended to be used directly.
-  -}
-  JsonStructure,
-  StructureFromJson,
-  StructureToJson,
 ) where
 
-import Data.Aeson (FromJSON(parseJSON), ToJSON(toJSON))
-import Data.JsonSpec.Decode
-  ( HasJsonDecodingSpec(DecodingSpec, fromJsonStructure)
-  , StructureFromJson(reprParseJson), eitherDecode
-  )
-import Data.JsonSpec.Encode
-  ( HasJsonEncodingSpec(EncodingSpec, toJsonStructure)
-  , StructureToJson(reprToJson), encode
-  )
 import Data.JsonSpec.Spec
-  ( Field(Field), FieldSpec(Optional, Required), Ref(Ref, unRef)
+  ( FieldSpec(Optional, Required), HasJsonDecodingSpec(DecodingSpec)
+  , HasJsonEncodingSpec(EncodingSpec)
   , Specification
     ( JsonAnnotated, JsonArray, JsonBool, JsonDateTime, JsonDict, JsonEither
     , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
     , JsonString, JsonTag
     )
-  , Tag(Tag), JsonStructure, unField, type (:::), type (::?)
+  , type (:::), type (::?)
   )
-import Prelude ((.), (<$>), (=<<))
-
-{- |
-  Helper for defining 'ToJSON' and 'FromJSON' instances based on
-  'HasEncodingJsonSpec'.
-
-  Use with -XDerivingVia like:
-
-  > data MyObj = MyObj
-  >   { foo :: Int
-  >   , bar :: Text
-  >   }
-  >   deriving (ToJSON, FromJSON) via (SpecJson MyObj)
-  > instance HasEncodingSpec MyObj where ...
-  > instance HasDecodingSpec MyObj where ...
--}
-newtype SpecJson a = SpecJson {unSpecJson :: a}
-instance (StructureToJson (JsonStructure (EncodingSpec a)), HasJsonEncodingSpec a) => ToJSON (SpecJson a) where
-  toJSON = reprToJson . toJsonStructure . unSpecJson
-instance (StructureFromJson (JsonStructure (DecodingSpec a)), HasJsonDecodingSpec a) => FromJSON (SpecJson a) where
-  parseJSON v =
-    SpecJson <$>
-      (fromJsonStructure =<< reprParseJson v)
-
 

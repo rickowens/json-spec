@@ -72,3 +72,30 @@ test-suite stable-environment
     , bytestring >= 0.12.0.2 && < 0.13
     , hspec      >= 2.11.0   && < 2.12
     , om-show    >= 0.1.2.9  && < 0.2
+
+test-suite json-let
+  import: dependencies, warnings
+  main-is: jsonlet.hs
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  default-language: Haskell2010
+  build-depends:
+    , json-spec
+
+test-suite json-let2
+  import: dependencies, warnings
+  main-is: jsonlet2.hs
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  default-language: Haskell2010
+  build-depends:
+    , json-spec
+
+test-suite json-let3
+  import: dependencies, warnings
+  main-is: jsonlet3.hs
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  default-language: Haskell2010
+  build-depends:
+    , json-spec

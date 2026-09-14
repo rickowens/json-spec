@@ -11,7 +11,7 @@
 
 module Data.JsonSpec.Spec (
   Specification(..),
-  JSONStructure,
+  JsonStructure,
   sym,
   Tag(..),
   Field(..),
@@ -42,7 +42,7 @@ import qualified GHC.TypeError as GE
 
   Intended to be used at the type level using @-XDataKinds@
 
-  See 'JSONStructure' for how these map into Haskell representations.
+  See 'JsonStructure' for how these map into Haskell representations.
 -}
 data Specification where
   JsonObject :: [FieldSpec] -> Specification
@@ -117,7 +117,7 @@ data Specification where
       >         ]
       >       ]
       >
-      >   toJSONStructure = \case
+      >   toJsonStructure = \case
       >     Foo t ->
       >       Left
       >         ( Field @"tag" (Tag @"foo")
@@ -247,7 +247,7 @@ type (::?) = Optional
 
 
 {- |
-  @'JSONStructure' spec@ is the Haskell type used to contain the JSON data
+  @'JsonStructure' spec@ is the Haskell type used to contain the JSON data
   that will be encoded or decoded according to the provided @spec@.
 
   Basically, we represent JSON objects as "list-like" nested tuples of
@@ -271,8 +271,8 @@ type (::?) = Optional
   tuple type, then they get a JSON encoding to/from their type that is
   guaranteed to be compliant with the 'Specification'
 -}
-type family JSONStructure (spec :: Specification) where
-  JSONStructure spec = JStruct '[] spec
+type family JsonStructure (spec :: Specification) where
+  JsonStructure spec = JStruct '[] spec
 
 
 {-|
@@ -380,7 +380,7 @@ type family
   > data Foo = Foo [Foo]
   > instance HasJsonEncodingSpec Foo where
   >   type EncodingSpec Foo = JsonArray (EncodingSpec Foo)
-  >   toJSONStructure = ... can't be written
+  >   toJsonStructure = ... can't be written
 
   ... because @EncodingSpec Foo@ would expand strictly into an array of
   @EncodingSpec Foo@, which would expand strictly... to infinity.
@@ -404,8 +404,8 @@ type family
   >     JsonLet
   >       '[ '("Foo", JsonArray (JsonRef "Foo")) ]
   >       (JsonRef "Foo")
-  >   toJSONStructure (Foo fs) =
-  >     Ref [ toJSONStructure <$> fs ]
+  >   toJsonStructure (Foo fs) =
+  >     Ref [ toJsonStructure <$> fs ]
 
   Strictly speaking, we wouldn't /necessarily/ have to translate every
   'JsonRef' into a 'Ref'. In principal we could get away with inserting a

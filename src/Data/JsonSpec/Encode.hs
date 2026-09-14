@@ -10,13 +10,13 @@
 
 module Data.JsonSpec.Encode (
   HasJsonEncodingSpec(..),
-  StructureToJSON(..),
+  StructureToJson(..),
   encode,
 ) where
 
 import Data.Aeson (ToJSON(toJSON), Value)
 import Data.JsonSpec.Spec
-  ( Field(Field), Ref(unRef), Specification(JsonArray), JSONStructure, JStruct
+  ( Field(Field), Ref(unRef), Specification(JsonArray), JStruct, JsonStructure
   , Tag, sym
   )
 import Data.Map (Map)
@@ -45,93 +45,93 @@ class HasJsonEncodingSpec a where
   type EncodingSpec a :: Specification
 
   {- | Encode the value into the structure appropriate for the specification. -}
-  toJSONStructure :: a -> JSONStructure (EncodingSpec a)
+  toJsonStructure :: a -> JsonStructure (EncodingSpec a)
 instance (HasJsonEncodingSpec a) => HasJsonEncodingSpec (Set a) where
   type EncodingSpec (Set a) = JsonArray (EncodingSpec a)
-  toJSONStructure = fmap toJSONStructure . Set.toList
+  toJsonStructure = fmap toJsonStructure . Set.toList
 
 
 {- |
   This is like 'ToJSON', but specialized for our custom "json
-  representation" types (i.e. the 'JSONStructure' type family). It is
+  representation" types (i.e. the 'JsonStructure' type family). It is
   also closed (i.e. not exported, so the user can't add instances),
   because our json representation is closed.
 
-  see 'StructureFromJSON' for an explaination about why we don't just use
+  see 'StructureFromJson' for an explaination about why we don't just use
   'ToJSON'.
 -}
-class StructureToJSON a where
-  reprToJSON :: a -> Value
-instance StructureToJSON Value where
-  reprToJSON = id
-instance StructureToJSON () where
-  reprToJSON () = A.object []
-instance StructureToJSON Bool where
-  reprToJSON = toJSON
-instance StructureToJSON Text where
-  reprToJSON = toJSON
-instance StructureToJSON Scientific where
-  reprToJSON = toJSON
-instance StructureToJSON Int where
-  reprToJSON = toJSON
-instance (ToJSONObject (a, b)) => StructureToJSON (a, b) where
-  reprToJSON = A.Object . toJSONObject
-instance (StructureToJSON left, StructureToJSON right) => StructureToJSON (Either left right) where
-  reprToJSON = \case
-    Left val -> reprToJSON val
-    Right val -> reprToJSON val
-instance (KnownSymbol const) => StructureToJSON (Tag const) where
-  reprToJSON _proxy = toJSON (sym @const @Text)
-instance (StructureToJSON a) => StructureToJSON [a] where
-  reprToJSON = toJSON . fmap reprToJSON
-instance (StructureToJSON a) => StructureToJSON (Map Text a) where
-  reprToJSON =
+class StructureToJson a where
+  reprToJson :: a -> Value
+instance StructureToJson Value where
+  reprToJson = id
+instance StructureToJson () where
+  reprToJson () = A.object []
+instance StructureToJson Bool where
+  reprToJson = toJSON
+instance StructureToJson Text where
+  reprToJson = toJSON
+instance StructureToJson Scientific where
+  reprToJson = toJSON
+instance StructureToJson Int where
+  reprToJson = toJSON
+instance (ToJsonObject (a, b)) => StructureToJson (a, b) where
+  reprToJson = A.Object . toJsonObject
+instance (StructureToJson left, StructureToJson right) => StructureToJson (Either left right) where
+  reprToJson = \case
+    Left val -> reprToJson val
+    Right val -> reprToJson val
+instance (KnownSymbol const) => StructureToJson (Tag const) where
+  reprToJson _proxy = toJSON (sym @const @Text)
+instance (StructureToJson a) => StructureToJson [a] where
+  reprToJson = toJSON . fmap reprToJson
+instance (StructureToJson a) => StructureToJson (Map Text a) where
+  reprToJson =
     A.Object
       . KM.fromList
-      . fmap (\(key, val) -> (AK.fromText key, reprToJSON val))
+      . fmap (\(key, val) -> (AK.fromText key, reprToJson val))
       . Map.toList
-instance StructureToJSON UTCTime where
-  reprToJSON = toJSON
-instance (StructureToJSON a) => StructureToJSON (Maybe a) where
-  reprToJSON = maybe A.Null reprToJSON
+instance StructureToJson UTCTime where
+  reprToJson = toJSON
+instance (StructureToJson a) => StructureToJson (Maybe a) where
+  reprToJson = maybe A.Null reprToJson
 instance
-    (StructureToJSON (JStruct env spec))
+    (StructureToJson (JStruct env spec))
   =>
-    StructureToJSON (Ref env spec)
+    StructureToJson (Ref env spec)
   where
-    reprToJSON = reprToJSON . unRef
+    reprToJson = reprToJson . unRef
 
 
 {- |
-  This class is to help 'StructureToJSON' recursively encode objects, and
-  is mutually recursive with 'StructureToJSON'. If we tried to "recurse
-  on the rest of the object" directly in 'StructureToJSON' we would end
-  up with a partial function, because 'reprToJSON' returns a 'Value'
+  This class is to help 'StructureToJson' recursively encode objects, and
+  is mutually recursive with 'StructureToJson'. If we tried to "recurse
+  on the rest of the object" directly in 'StructureToJson' we would end
+  up with a partial function, because 'reprToJson' returns a 'Value'
   not an 'Object'. We would therefore have to pattern match on 'Value'
   to get the 'Object' back out, but we would have to call 'error' if the
   'Value' mysteriously somehow wasn't an 'Object' after all. Instead of
   calling error because "it can't ever happen", we use this helper so
   the compiler can prove it never happens.
 -}
-class ToJSONObject a where
-  toJSONObject :: a -> A.Object
-instance ToJSONObject () where
-  toJSONObject _ = mempty
-instance (KnownSymbol key, StructureToJSON val, ToJSONObject more) => ToJSONObject (Field key val, more) where
-  toJSONObject (Field val, more) =
+class ToJsonObject a where
+  toJsonObject :: a -> A.Object
+instance ToJsonObject () where
+  toJsonObject _ = mempty
+instance (KnownSymbol key, StructureToJson val, ToJsonObject more) => ToJsonObject (Field key val, more) where
+  toJsonObject (Field val, more) =
     KM.insert
       (sym @key)
-      (reprToJSON val)
-      (toJSONObject more)
-instance (KnownSymbol key, StructureToJSON val, ToJSONObject more) => ToJSONObject (Maybe (Field key val), more) where
-  toJSONObject (mval, more) =
+      (reprToJson val)
+      (toJsonObject more)
+instance (KnownSymbol key, StructureToJson val, ToJsonObject more) => ToJsonObject (Maybe (Field key val), more) where
+  toJsonObject (mval, more) =
     case mval of
-      Nothing -> toJSONObject more
+      Nothing -> toJsonObject more
       Just (Field val) ->
         KM.insert
           (sym @key)
-          (reprToJSON val)
-          (toJSONObject more)
+          (reprToJson val)
+          (toJsonObject more)
 
 
 {-|
@@ -140,7 +140,7 @@ instance (KnownSymbol key, StructureToJSON val, ToJSONObject more) => ToJSONObje
 
   See also: `Data.JsonSpec.eitherDecode`.
 -}
-encode :: StructureToJSON (JSONStructure spec) => Proxy spec -> JSONStructure spec -> Value
-encode Proxy = reprToJSON
+encode :: StructureToJson (JsonStructure spec) => Proxy spec -> JsonStructure spec -> Value
+encode Proxy = reprToJson
 
 

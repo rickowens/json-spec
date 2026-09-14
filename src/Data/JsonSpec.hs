@@ -14,20 +14,20 @@
   >   , lastLogin :: UTCTime
   >   }
   >   deriving stock (Show, Eq)
-  >   deriving (ToJSON, FromJSON) via (SpecJSON User)
+  >   deriving (ToJSON, FromJSON) via (SpecJson User)
   > instance HasJsonEncodingSpec User where
   >   type EncodingSpec User =
   >     JsonObject '[
   >       Required "name" JsonString,
   >       Required "last-login" JsonDateTime
   >     ]
-  >   toJSONStructure user =
+  >   toJsonStructure user =
   >     (Field @"name" (name user),
   >     (Field @"last-login" (lastLogin user),
   >     ()))
   > instance HasJsonDecodingSpec User where
   >   type DecodingSpec User = EncodingSpec User
-  >   fromJSONStructure
+  >   fromJsonStructure
   >       (Field @"name" name,
   >       (Field @"last-login" lastLogin,
   >       ()))
@@ -78,7 +78,7 @@ module Data.JsonSpec (
   -- * Encoding/decoding via a Specification
   HasJsonEncodingSpec(..),
   HasJsonDecodingSpec(..),
-  SpecJSON(..),
+  SpecJson(..),
   Tag(..),
   Field(..),
   unField,
@@ -94,19 +94,19 @@ module Data.JsonSpec (
     while you might need to include them in a type signature, but they
     are not intended to be used directly.
   -}
-  JSONStructure,
-  StructureFromJSON,
-  StructureToJSON,
+  JsonStructure,
+  StructureFromJson,
+  StructureToJson,
 ) where
 
 import Data.Aeson (FromJSON(parseJSON), ToJSON(toJSON))
 import Data.JsonSpec.Decode
-  ( HasJsonDecodingSpec(DecodingSpec, fromJSONStructure)
-  , StructureFromJSON(reprParseJSON), eitherDecode
+  ( HasJsonDecodingSpec(DecodingSpec, fromJsonStructure)
+  , StructureFromJson(reprParseJson), eitherDecode
   )
 import Data.JsonSpec.Encode
-  ( HasJsonEncodingSpec(EncodingSpec, toJSONStructure)
-  , StructureToJSON(reprToJSON), encode
+  ( HasJsonEncodingSpec(EncodingSpec, toJsonStructure)
+  , StructureToJson(reprToJson), encode
   )
 import Data.JsonSpec.Spec
   ( Field(Field), FieldSpec(Optional, Required), Ref(Ref, unRef)
@@ -115,7 +115,7 @@ import Data.JsonSpec.Spec
     , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
     , JsonString, JsonTag
     )
-  , Tag(Tag), JSONStructure, unField, type (:::), type (::?)
+  , Tag(Tag), JsonStructure, unField, type (:::), type (::?)
   )
 import Prelude ((.), (<$>), (=<<))
 
@@ -129,16 +129,16 @@ import Prelude ((.), (<$>), (=<<))
   >   { foo :: Int
   >   , bar :: Text
   >   }
-  >   deriving (ToJSON, FromJSON) via (SpecJSON MyObj)
+  >   deriving (ToJSON, FromJSON) via (SpecJson MyObj)
   > instance HasEncodingSpec MyObj where ...
   > instance HasDecodingSpec MyObj where ...
 -}
-newtype SpecJSON a = SpecJSON {unSpecJson :: a}
-instance (StructureToJSON (JSONStructure (EncodingSpec a)), HasJsonEncodingSpec a) => ToJSON (SpecJSON a) where
-  toJSON = reprToJSON . toJSONStructure . unSpecJson
-instance (StructureFromJSON (JSONStructure (DecodingSpec a)), HasJsonDecodingSpec a) => FromJSON (SpecJSON a) where
+newtype SpecJson a = SpecJson {unSpecJson :: a}
+instance (StructureToJson (JsonStructure (EncodingSpec a)), HasJsonEncodingSpec a) => ToJSON (SpecJson a) where
+  toJSON = reprToJson . toJsonStructure . unSpecJson
+instance (StructureFromJson (JsonStructure (DecodingSpec a)), HasJsonDecodingSpec a) => FromJSON (SpecJson a) where
   parseJSON v =
-    SpecJSON <$>
-      (fromJSONStructure =<< reprParseJSON v)
+    SpecJson <$>
+      (fromJsonStructure =<< reprParseJson v)
 
 

@@ -29,9 +29,9 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Either (isLeft)
 import Data.JsonSpec
   ( Field(Field), FieldSpec(Optional, Required)
-  , HasJsonDecodingSpec(DecodingSpec, fromJSONStructure)
-  , HasJsonEncodingSpec(EncodingSpec, toJSONStructure), Ref(Ref)
-  , SpecJSON(SpecJSON)
+  , HasJsonDecodingSpec(DecodingSpec, fromJsonStructure)
+  , HasJsonEncodingSpec(EncodingSpec, toJsonStructure), Ref(Ref)
+  , SpecJson(SpecJson)
   , Specification
     ( JsonAnnotated, JsonArray, JsonBool, JsonDateTime, JsonDict, JsonEither
     , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
@@ -864,8 +864,8 @@ data TestSum
   = TestA Int Text
   | TestB
   deriving stock (Eq, Show)
-  deriving ToJSON via (SpecJSON TestSum)
-  deriving FromJSON via (SpecJSON TestSum)
+  deriving ToJSON via (SpecJson TestSum)
+  deriving FromJSON via (SpecJson TestSum)
 instance HasJsonEncodingSpec TestSum where
   type EncodingSpec TestSum =
     JsonEither
@@ -881,7 +881,7 @@ instance HasJsonEncodingSpec TestSum where
           Required "tag" (JsonTag "b")
         ]
       ]
-  toJSONStructure = \case
+  toJsonStructure = \case
     TestA i t ->
       Left
         (Field @"tag" (Tag @"a"),
@@ -899,7 +899,7 @@ instance HasJsonEncodingSpec TestSum where
         )
 instance HasJsonDecodingSpec TestSum where
   type DecodingSpec TestSum = EncodingSpec TestSum
-  fromJSONStructure = \case
+  fromJsonStructure = \case
     Left
         (Field @"tag" Tag,
         (Field @"content"
@@ -918,14 +918,14 @@ data TestOptionalHasField = TestOptionalHasField
   , bar :: Maybe (Maybe Text)
   }
   deriving stock (Show, Eq)
-  deriving FromJSON via (SpecJSON TestOptionalHasField)
+  deriving FromJSON via (SpecJson TestOptionalHasField)
 instance HasJsonDecodingSpec TestOptionalHasField where
   type DecodingSpec TestOptionalHasField =
     JsonObject
      '[ "foo" ::? JsonString
       , "bar" ::? JsonNullable JsonString
       ]
-  fromJSONStructure v =
+  fromJsonStructure v =
     pure
       TestOptionalHasField
         { foo = v.foo
@@ -941,8 +941,8 @@ data TestObj = TestObj
   , qoo :: Bool
   }
   deriving stock (Show, Eq)
-  deriving ToJSON via (SpecJSON TestObj)
-  deriving FromJSON via (SpecJSON TestObj)
+  deriving ToJSON via (SpecJson TestObj)
+  deriving FromJSON via (SpecJson TestObj)
 instance HasJsonEncodingSpec TestObj where
   type EncodingSpec TestObj =
     JsonObject
@@ -953,16 +953,16 @@ instance HasJsonEncodingSpec TestObj where
         Required "qux" (JsonNullable JsonInt),
         Required "qoo" JsonBool
       ]
-  toJSONStructure TestObj { foo , bar , baz, qux, qoo } =
+  toJsonStructure TestObj { foo , bar , baz, qux, qoo } =
     (Field @"foo" foo,
     (fmap (Field @"bar" . realToFrac) bar,
-    (Field @"baz" (toJSONStructure baz),
+    (Field @"baz" (toJsonStructure baz),
     (Field @"qux" qux,
     (Field @"qoo" qoo,
     ())))))
 instance HasJsonDecodingSpec TestObj where
   type DecodingSpec TestObj = EncodingSpec TestObj
-  fromJSONStructure
+  fromJsonStructure
       (Field @"foo" foo,
       (fmap (unField @"bar") -> bar,
       (Field @"baz" rawBaz,
@@ -970,7 +970,7 @@ instance HasJsonDecodingSpec TestObj where
       (Field @"qoo" qoo,
       ())))))
     = do
-      baz <- fromJSONStructure rawBaz
+      baz <- fromJsonStructure rawBaz
       pure TestObj { foo, bar, baz, qux, qoo }
 
 
@@ -985,13 +985,13 @@ instance HasJsonEncodingSpec TestSubObj where
       '[ Required "foo" JsonString
        , Required "bar" JsonInt
        ]
-  toJSONStructure TestSubObj { foo2 , bar2 } =
+  toJsonStructure TestSubObj { foo2 , bar2 } =
     (Field @"foo" foo2,
     (Field @"bar" bar2,
     ()))
 instance HasJsonDecodingSpec TestSubObj where
   type DecodingSpec TestSubObj = EncodingSpec TestSubObj
-  fromJSONStructure
+  fromJsonStructure
       (Field @"foo" foo2,
       (Field @"bar" bar2,
       ()))
@@ -1004,20 +1004,20 @@ data User = User
   , lastLogin :: UTCTime
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON User)
+  deriving (ToJSON, FromJSON) via (SpecJson User)
 instance HasJsonEncodingSpec User where
   type EncodingSpec User =
     JsonObject
       '[ Required "name" JsonString
        , Required "last-login" JsonDateTime
        ]
-  toJSONStructure user =
+  toJsonStructure user =
     (Field @"name" (name user),
     (Field @"last-login" (lastLogin user),
     ()))
 instance HasJsonDecodingSpec User where
   type DecodingSpec User = EncodingSpec User
-  fromJSONStructure
+  fromJsonStructure
       (Field @"name" name,
       (Field @"last-login" lastLogin,
       ()))
@@ -1031,7 +1031,7 @@ data Vertex = Vertex
   , z :: Int
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON Vertex)
+  deriving (ToJSON, FromJSON) via (SpecJson Vertex)
 instance HasJsonEncodingSpec Vertex where
   type EncodingSpec Vertex =
     JsonObject
@@ -1039,14 +1039,14 @@ instance HasJsonEncodingSpec Vertex where
        , Required "y" JsonInt
        , Required "z" JsonInt
        ]
-  toJSONStructure Vertex {x, y, z} =
+  toJsonStructure Vertex {x, y, z} =
     (Field @"x" x,
     (Field @"y" y,
     (Field @"z" z,
     ())))
 instance HasJsonDecodingSpec Vertex where
   type DecodingSpec Vertex = EncodingSpec Vertex
-  fromJSONStructure
+  fromJsonStructure
       (Field @"x" x,
       (Field @"y" y,
       (Field @"z" z,
@@ -1061,7 +1061,7 @@ data Triangle = Triangle
   , vertex3 :: Vertex
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON Triangle)
+  deriving (ToJSON, FromJSON) via (SpecJson Triangle)
 instance HasJsonEncodingSpec Triangle where
   type EncodingSpec Triangle =
     JsonLet
@@ -1071,22 +1071,22 @@ instance HasJsonEncodingSpec Triangle where
          , Required "vertex2" (JsonRef "Vertex")
          , Required "vertex3" (JsonRef "Vertex")
          ])
-  toJSONStructure Triangle {vertex1, vertex2, vertex3} =
-    (Field @"vertex1" (Ref $ toJSONStructure vertex1),
-    (Field @"vertex2" (Ref $ toJSONStructure vertex2),
-    (Field @"vertex3" (Ref $ toJSONStructure vertex3),
+  toJsonStructure Triangle {vertex1, vertex2, vertex3} =
+    (Field @"vertex1" (Ref $ toJsonStructure vertex1),
+    (Field @"vertex2" (Ref $ toJsonStructure vertex2),
+    (Field @"vertex3" (Ref $ toJsonStructure vertex3),
     ())))
 instance HasJsonDecodingSpec Triangle where
   type DecodingSpec Triangle = EncodingSpec Triangle
-  fromJSONStructure
+  fromJsonStructure
       (Field @"vertex1" (Ref rawVertex1),
       (Field @"vertex2" (Ref rawVertex2),
       (Field @"vertex3" (Ref rawVertex3),
       ())))
     = do
-      vertex1 <- fromJSONStructure rawVertex1
-      vertex2 <- fromJSONStructure rawVertex2
-      vertex3 <- fromJSONStructure rawVertex3
+      vertex1 <- fromJsonStructure rawVertex1
+      vertex2 <- fromJsonStructure rawVertex2
+      vertex3 <- fromJsonStructure rawVertex3
       pure Triangle{vertex1, vertex2, vertex3}
 
 
@@ -1095,7 +1095,7 @@ data LabelledTree = LabelledTree
   , children :: [LabelledTree]
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON LabelledTree)
+  deriving (ToJSON, FromJSON) via (SpecJson LabelledTree)
 instance HasJsonEncodingSpec LabelledTree where
   type EncodingSpec LabelledTree =
       JsonLet
@@ -1107,17 +1107,17 @@ instance HasJsonEncodingSpec LabelledTree where
             )
          ]
         (JsonRef "LabelledTree")
-  toJSONStructure LabelledTree {label , children } =
+  toJsonStructure LabelledTree {label , children } =
     Ref
       (Field @"label" label,
       (Field @"children"
-        [ toJSONStructure child
+        [ toJsonStructure child
         | child <- children
         ],
       ()))
 instance HasJsonDecodingSpec LabelledTree where
   type DecodingSpec LabelledTree = EncodingSpec LabelledTree
-  fromJSONStructure
+  fromJsonStructure
       (
         Ref
           (Field @"label" label,
@@ -1125,7 +1125,7 @@ instance HasJsonDecodingSpec LabelledTree where
           ()))
       )
     = do
-      children <- traverse fromJSONStructure children_
+      children <- traverse fromJsonStructure children_
       pure LabelledTree { label , children }
 
 
@@ -1135,7 +1135,7 @@ data TestOptionality = TestOptionality
   , toBaz :: Maybe Int
   , toQux :: Int
   }
-  deriving (ToJSON, FromJSON) via (SpecJSON TestOptionality)
+  deriving (ToJSON, FromJSON) via (SpecJson TestOptionality)
   deriving (Show) via (ShowJ TestOptionality)
   deriving stock (Eq)
 instance HasJsonEncodingSpec TestOptionality where
@@ -1147,7 +1147,7 @@ instance HasJsonEncodingSpec TestOptionality where
        , Required "qux" JsonInt
        ]
 
-  toJSONStructure TestOptionality { toFoo , toBar , toBaz , toQux } =
+  toJsonStructure TestOptionality { toFoo , toBar , toBaz , toQux } =
     (fmap (Field @"foo") toFoo,
     (Field @"bar" toBar,
     ((Just . Field @"baz") toBaz, -- when encoding, prefer explicit null for testing.
@@ -1156,7 +1156,7 @@ instance HasJsonEncodingSpec TestOptionality where
 instance HasJsonDecodingSpec TestOptionality where
   type DecodingSpec TestOptionality = EncodingSpec TestOptionality
 
-  fromJSONStructure
+  fromJsonStructure
       (fmap (unField @"foo") -> toFoo,
       (Field @"bar" toBar,
       (join . fmap (unField @"baz") -> toBaz,
@@ -1172,7 +1172,7 @@ data TestHasField = TestHasField
   , thfBaz :: TestSubObj
   }
   deriving stock (Show, Eq)
-  deriving (FromJSON) via (SpecJSON TestHasField)
+  deriving (FromJSON) via (SpecJson TestHasField)
 instance HasJsonDecodingSpec TestHasField where
   type DecodingSpec TestHasField =
     JsonObject
@@ -1183,7 +1183,7 @@ instance HasJsonDecodingSpec TestHasField where
                      ,   "an_int" ::: JsonInt
                      ]
        ]
-  fromJSONStructure val =
+  fromJsonStructure val =
     pure
       TestHasField
         { thfFoo = val.foo
@@ -1201,7 +1201,7 @@ instance HasJsonDecodingSpec TestHasField where
 {- ========================================================================== -}
 
 newtype MRec1 = MRec1 [MRec2]
-  deriving (ToJSON, FromJSON) via (SpecJSON MRec1)
+  deriving (ToJSON, FromJSON) via (SpecJson MRec1)
   deriving stock (Show, Eq)
 newtype MRec2 = MRec2 [MRec1]
   deriving stock (Show, Eq)
@@ -1213,19 +1213,19 @@ instance HasJsonEncodingSpec MRec1 where
       ]
       (JsonRef "one")
 
-  toJSONStructure (MRec1 m2s) =
+  toJsonStructure (MRec1 m2s) =
     Ref
-      [ Ref (fmap toJSONStructure m1s)
+      [ Ref (fmap toJsonStructure m1s)
       | MRec2 m1s <- m2s
       ]
 instance HasJsonDecodingSpec MRec1 where
   type DecodingSpec MRec1 = EncodingSpec MRec1
 
-  fromJSONStructure (Ref m2s_) = do
+  fromJsonStructure (Ref m2s_) = do
     m2s <-
       traverse
         (\(Ref m1s_) -> do
-          m1s <- traverse fromJSONStructure m1s_
+          m1s <- traverse fromJsonStructure m1s_
           pure (MRec2 m1s)
         )
         m2s_
@@ -1253,20 +1253,20 @@ newtype MRec3 = MRec3
   { foo :: Maybe MRec4
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON MRec3)
+  deriving (ToJSON, FromJSON) via (SpecJson MRec3)
 instance HasJsonEncodingSpec MRec3 where
   type EncodingSpec MRec3 =
     JsonLet SharedRecSpecs (JsonRef "three")
 
-  toJSONStructure MRec3 { foo } =
+  toJsonStructure MRec3 { foo } =
     Ref
-      (Field @"foo" (fmap toJSONStructure foo),
+      (Field @"foo" (fmap toJsonStructure foo),
       ())
 instance HasJsonDecodingSpec MRec3 where
   type DecodingSpec MRec3 = EncodingSpec MRec3
-  fromJSONStructure ( Ref (Field @"foo" rawFoo, ()))
+  fromJsonStructure ( Ref (Field @"foo" rawFoo, ()))
     = do
-      foo <- traverse fromJSONStructure rawFoo
+      foo <- traverse fromJsonStructure rawFoo
       pure MRec3 { foo }
 
 
@@ -1277,15 +1277,15 @@ newtype MRec4 = MRec4
 instance HasJsonEncodingSpec MRec4 where
   type EncodingSpec MRec4 =
     JsonLet SharedRecSpecs (JsonRef "four")
-  toJSONStructure MRec4 { bar } =
+  toJsonStructure MRec4 { bar } =
     Ref
-      (Field @"bar" (toJSONStructure bar),
+      (Field @"bar" (toJsonStructure bar),
       ())
 instance HasJsonDecodingSpec MRec4 where
   type DecodingSpec MRec4 = EncodingSpec MRec4
-  fromJSONStructure ( Ref (Field @"bar" rawbar, ()))
+  fromJsonStructure ( Ref (Field @"bar" rawbar, ()))
     = do
-      bar <- fromJSONStructure rawbar
+      bar <- fromJsonStructure rawbar
       pure MRec4 { bar }
 
 {- ========================================================================== -}
@@ -1299,7 +1299,7 @@ data AnnotatedUser = AnnotatedUser
   ,  auAge :: Int
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON AnnotatedUser)
+  deriving (ToJSON, FromJSON) via (SpecJson AnnotatedUser)
 instance HasJsonEncodingSpec AnnotatedUser where
   type EncodingSpec AnnotatedUser =
     JsonAnnotated
@@ -1310,13 +1310,13 @@ instance HasJsonEncodingSpec AnnotatedUser where
         '[ Required "name" JsonString
          , Required "age" JsonInt
          ])
-  toJSONStructure AnnotatedUser { auName, auAge } =
+  toJsonStructure AnnotatedUser { auName, auAge } =
     (Field @"name" auName,
     (Field @"age" auAge,
     ()))
 instance HasJsonDecodingSpec AnnotatedUser where
   type DecodingSpec AnnotatedUser = EncodingSpec AnnotatedUser
-  fromJSONStructure
+  fromJsonStructure
       (Field @"name" auName,
       (Field @"age" auAge,
       ()))
@@ -1330,7 +1330,7 @@ data AnnotatedVertex = AnnotatedVertex
   , avZ :: Int
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON AnnotatedVertex)
+  deriving (ToJSON, FromJSON) via (SpecJson AnnotatedVertex)
 instance HasJsonEncodingSpec AnnotatedVertex where
   type EncodingSpec AnnotatedVertex =
     JsonAnnotated
@@ -1340,14 +1340,14 @@ instance HasJsonEncodingSpec AnnotatedVertex where
          , Required "y" JsonInt
          , Required "z" JsonInt
          ])
-  toJSONStructure AnnotatedVertex { avX, avY, avZ } =
+  toJsonStructure AnnotatedVertex { avX, avY, avZ } =
     (Field @"x" avX,
     (Field @"y" avY,
     (Field @"z" avZ,
     ())))
 instance HasJsonDecodingSpec AnnotatedVertex where
   type DecodingSpec AnnotatedVertex = EncodingSpec AnnotatedVertex
-  fromJSONStructure
+  fromJsonStructure
       (Field @"x" avX,
       (Field @"y" avY,
       (Field @"z" avZ,
@@ -1362,7 +1362,7 @@ data AnnotatedTriangle = AnnotatedTriangle
   , atVertex3 :: AnnotatedVertex
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON AnnotatedTriangle)
+  deriving (ToJSON, FromJSON) via (SpecJson AnnotatedTriangle)
 instance HasJsonEncodingSpec AnnotatedTriangle where
   type EncodingSpec AnnotatedTriangle =
     JsonLet
@@ -1382,22 +1382,22 @@ instance HasJsonEncodingSpec AnnotatedTriangle where
            , Required "vertex2" (JsonRef "Vertex")
            , Required "vertex3" (JsonRef "Vertex")
            ]))
-  toJSONStructure AnnotatedTriangle { atVertex1, atVertex2, atVertex3 } =
-    (Field @"vertex1" (Ref $ toJSONStructure atVertex1),
-    (Field @"vertex2" (Ref $ toJSONStructure atVertex2),
-    (Field @"vertex3" (Ref $ toJSONStructure atVertex3),
+  toJsonStructure AnnotatedTriangle { atVertex1, atVertex2, atVertex3 } =
+    (Field @"vertex1" (Ref $ toJsonStructure atVertex1),
+    (Field @"vertex2" (Ref $ toJsonStructure atVertex2),
+    (Field @"vertex3" (Ref $ toJsonStructure atVertex3),
     ())))
 instance HasJsonDecodingSpec AnnotatedTriangle where
   type DecodingSpec AnnotatedTriangle = EncodingSpec AnnotatedTriangle
-  fromJSONStructure
+  fromJsonStructure
       (Field @"vertex1" (Ref rawVertex1),
       (Field @"vertex2" (Ref rawVertex2),
       (Field @"vertex3" (Ref rawVertex3),
       ())))
     = do
-      atVertex1 <- fromJSONStructure rawVertex1
-      atVertex2 <- fromJSONStructure rawVertex2
-      atVertex3 <- fromJSONStructure rawVertex3
+      atVertex1 <- fromJsonStructure rawVertex1
+      atVertex2 <- fromJsonStructure rawVertex2
+      atVertex3 <- fromJsonStructure rawVertex3
       pure AnnotatedTriangle { atVertex1, atVertex2, atVertex3 }
 
 
@@ -1405,7 +1405,7 @@ data AnnotatedWithBool = AnnotatedWithBool
   { awbName :: Text
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON AnnotatedWithBool)
+  deriving (ToJSON, FromJSON) via (SpecJson AnnotatedWithBool)
 instance HasJsonEncodingSpec AnnotatedWithBool where
   type EncodingSpec AnnotatedWithBool =
     JsonAnnotated
@@ -1413,12 +1413,12 @@ instance HasJsonEncodingSpec AnnotatedWithBool where
        , '("deprecated", 'False)
        ]
       (JsonObject '[ Required "name" JsonString ])
-  toJSONStructure AnnotatedWithBool { awbName } =
+  toJsonStructure AnnotatedWithBool { awbName } =
     (Field @"name" awbName,
     ())
 instance HasJsonDecodingSpec AnnotatedWithBool where
   type DecodingSpec AnnotatedWithBool = EncodingSpec AnnotatedWithBool
-  fromJSONStructure
+  fromJsonStructure
       (Field @"name" awbName,
       ())
     =

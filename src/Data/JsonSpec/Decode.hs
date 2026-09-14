@@ -9,7 +9,7 @@
 
 {- | Decoding using specs. -}
 module Data.JsonSpec.Decode (
-  StructureFromJSON(..),
+  StructureFromJson(..),
   HasJsonDecodingSpec(..),
   eitherDecode,
 ) where
@@ -20,7 +20,7 @@ import Data.Aeson.Types
   , withObject, withScientific, withText
   )
 import Data.JsonSpec.Spec
-  ( Field(Field), Ref(Ref), Tag(Tag), JSONStructure, JStruct, Specification, sym
+  ( Field(Field), Ref(Ref), Tag(Tag), JStruct, JsonStructure, Specification, sym
   )
 import Data.Map (Map)
 import Data.Proxy (Proxy)
@@ -55,7 +55,7 @@ class HasJsonDecodingSpec a where
     'Specification' is not powerful enough to express "this field must
     contain only prime numbers".
   -}
-  fromJSONStructure :: JSONStructure (DecodingSpec a) -> Parser a
+  fromJsonStructure :: JsonStructure (DecodingSpec a) -> Parser a
 
 
 {- |
@@ -64,7 +64,7 @@ class HasJsonDecodingSpec a where
   representation scheme is fixed and not extensible by the user.
 
   We can't just use 'Data.Aeson.FromJSON' because the types we are using
-  to represent "json data" (i.e. the 'JSONStructure' type family) already
+  to represent "json data" (i.e. the 'JsonStructure' type family) already
   have 'ToJSON' instances. Even if we were to make a bunch of newtypes
   or whatever to act as the json representation (and therefor also force
   the user to do a lot of wrapping and unwrapping), that still wouldn't
@@ -73,79 +73,79 @@ class HasJsonDecodingSpec a where
   to worry about any of that, and the types that the user must deal with
   when implementing 'fromJSONRepr' can be simple tuples and such.
 -}
-class StructureFromJSON a where
-  reprParseJSON :: Value -> Parser a
-instance StructureFromJSON Value where
-  reprParseJSON = pure
-instance StructureFromJSON Text where
-  reprParseJSON = withText "string" pure
-instance StructureFromJSON Scientific where
-  reprParseJSON = withScientific "number" pure
-instance StructureFromJSON Int where
-  reprParseJSON = parseJSON
-instance StructureFromJSON () where
-  reprParseJSON =
+class StructureFromJson a where
+  reprParseJson :: Value -> Parser a
+instance StructureFromJson Value where
+  reprParseJson = pure
+instance StructureFromJson Text where
+  reprParseJson = withText "string" pure
+instance StructureFromJson Scientific where
+  reprParseJson = withScientific "number" pure
+instance StructureFromJson Int where
+  reprParseJson = parseJSON
+instance StructureFromJson () where
+  reprParseJson =
     withObject "empty object" $ \_ -> pure ()
-instance StructureFromJSON Bool where
-  reprParseJSON = parseJSON
-instance (KnownSymbol key, StructureFromJSON val, StructureFromJSON more) => StructureFromJSON (Field key val, more) where
-  reprParseJSON =
+instance StructureFromJson Bool where
+  reprParseJson = parseJSON
+instance (KnownSymbol key, StructureFromJson val, StructureFromJson more) => StructureFromJson (Field key val, more) where
+  reprParseJson =
     withObject "object" $ \o -> do
-      more <- reprParseJSON (Object o)
+      more <- reprParseJson (Object o)
       case KM.lookup (sym @key) o of
         Nothing -> fail $ "could not find key: " <> sym @key
         Just rawVal -> do
-          val <- reprParseJSON rawVal
+          val <- reprParseJson rawVal
           pure (Field val, more)
-instance (KnownSymbol key, StructureFromJSON val, StructureFromJSON more) => StructureFromJSON (Maybe (Field key val), more) where
-  reprParseJSON =
+instance (KnownSymbol key, StructureFromJson val, StructureFromJson more) => StructureFromJson (Maybe (Field key val), more) where
+  reprParseJson =
     withObject "object" $ \o -> do
-      more <- reprParseJSON (Object o)
+      more <- reprParseJson (Object o)
       case KM.lookup (sym @key) o of
         Nothing ->
           pure (Nothing, more)
         Just rawVal -> do
-          val <- reprParseJSON rawVal
+          val <- reprParseJson rawVal
           pure (Just (Field val), more)
-instance (StructureFromJSON left, StructureFromJSON right) => StructureFromJSON (Either left right) where
-  reprParseJSON v =
-    (Left <$> reprParseJSON v)
-    <|> (Right <$> reprParseJSON v)
-instance (KnownSymbol const) => StructureFromJSON (Tag const) where
-  reprParseJSON =
+instance (StructureFromJson left, StructureFromJson right) => StructureFromJson (Either left right) where
+  reprParseJson v =
+    (Left <$> reprParseJson v)
+    <|> (Right <$> reprParseJson v)
+instance (KnownSymbol const) => StructureFromJson (Tag const) where
+  reprParseJson =
     withText "constant" $ \c ->
       if c == sym @const then pure Tag
       else fail "unexpected constant value"
-instance (StructureFromJSON a) => StructureFromJSON [a] where
-  reprParseJSON =
+instance (StructureFromJson a) => StructureFromJson [a] where
+  reprParseJson =
     withArray
       "list"
-      (fmap Vector.toList . traverse reprParseJSON)
-instance (StructureFromJSON a) => StructureFromJSON (Map Text a) where
-  reprParseJSON =
+      (fmap Vector.toList . traverse reprParseJson)
+instance (StructureFromJson a) => StructureFromJson (Map Text a) where
+  reprParseJson =
     withObject
       "dict"
       ( fmap Map.fromList
           . traverse
               ( \(key, val) ->
-                  (\val_ -> (AK.toText key, val_)) <$> reprParseJSON val
+                  (\val_ -> (AK.toText key, val_)) <$> reprParseJson val
               )
           . KM.toList
       )
-instance StructureFromJSON UTCTime where
-  reprParseJSON = parseJSON
-instance (StructureFromJSON a) => StructureFromJSON (Maybe a) where
-  reprParseJSON val = do
+instance StructureFromJson UTCTime where
+  reprParseJson = parseJSON
+instance (StructureFromJson a) => StructureFromJson (Maybe a) where
+  reprParseJson val = do
     case val of
       Null -> pure Nothing
-      _ -> Just <$> reprParseJSON val
+      _ -> Just <$> reprParseJson val
 instance
-    (StructureFromJSON (JStruct env spec))
+    (StructureFromJson (JStruct env spec))
   =>
-    StructureFromJSON (Ref env spec)
+    StructureFromJson (Ref env spec)
   where
-  reprParseJSON val =
-    Ref <$> reprParseJSON val
+  reprParseJson val =
+    Ref <$> reprParseJson val
 
 
 {-|
@@ -154,11 +154,11 @@ instance
 -}
 eitherDecode
   :: forall spec.
-     (StructureFromJSON (JSONStructure spec))
+     (StructureFromJson (JsonStructure spec))
    => Proxy (spec :: Specification)
   -> Value
-  -> Either String (JSONStructure spec)
+  -> Either String (JsonStructure spec)
 eitherDecode _spec =
-  parseEither reprParseJSON
+  parseEither reprParseJson
 
 

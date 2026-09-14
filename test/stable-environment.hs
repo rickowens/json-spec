@@ -17,7 +17,7 @@
 module Main (main) where
 
 import Data.JsonSpec
-  ( HasJsonEncodingSpec(EncodingSpec, toJSONStructure), Ref(Ref)
+  ( HasJsonEncodingSpec(EncodingSpec, toJsonStructure), Ref(Ref)
   , Specification(JsonLet, JsonRef, JsonString)
   )
 import Data.Text (Text)
@@ -60,8 +60,8 @@ newtype Foo = Foo Baz
 instance HasJsonEncodingSpec Foo where
   type EncodingSpec Foo =
     TestShared "Foo"
-  toJSONStructure (Foo val) =
-    Ref . Ref . toJSONStructure $ val
+  toJsonStructure (Foo val) =
+    Ref . Ref . toJsonStructure $ val
 
 
 newtype Baz = Baz Text
@@ -72,6 +72,6 @@ newtype Baz = Baz Text
 instance HasJsonEncodingSpec Baz where
   type EncodingSpec Baz =
     TestShared "Baz"
-  toJSONStructure (Baz val) = Ref val
+  toJsonStructure (Baz val) = Ref val
 
 

@@ -41,20 +41,20 @@ data User = User
   , lastLogin :: UTCTime
   }
   deriving stock (Show, Eq)
-  deriving (ToJSON, FromJSON) via (SpecJSON User)
+  deriving (ToJSON, FromJSON) via (SpecJson User)
 instance HasJsonEncodingSpec User where
   type EncodingSpec User =
     JsonObject '[
       Required "name" JsonString,
       Required "last-login" JsonDateTime
     ]
-  toJSONStructure user =
+  toJsonStructure user =
     (Field @"name" (name user),
     (Field @"last-login" (lastLogin user),
     ()))
 instance HasJsonDecodingSpec User where
   type DecodingSpec User = EncodingSpec User
-  fromJSONStructure
+  fromJsonStructure
       (Field @"name" name,
       (Field @"last-login" lastLogin,
       ()))

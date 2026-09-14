@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 
 {-|
   This module provides a way to specify the shape of your JSON data at
@@ -114,7 +115,7 @@ import Data.JsonSpec.Spec
     , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
     , JsonString, JsonTag
     )
-  , Tag(Tag), (:::), (::?), JSONStructure, unField
+  , Tag(Tag), JSONStructure, unField, type (:::), type (::?)
   )
 import Prelude ((.), (<$>), (=<<))
 

@@ -37,7 +37,7 @@ import Data.JsonSpec
     , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
     , JsonString, JsonTag
     )
-  , Tag(Tag), (:::), (::?), eitherDecode, encode, unField
+  , Tag(Tag), eitherDecode, encode, unField, type (:::), type (::?)
   )
 import Data.Map (Map)
 import Data.Proxy (Proxy(Proxy))

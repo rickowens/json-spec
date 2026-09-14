@@ -5,16 +5,14 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -fdefer-type-errors -Wno-error=deferred-type-errors #-}
-
 module Main (main) where
 
 import Data.JsonSpec
-  ( HasJsonEncodingSpec(EncodingSpec)
-  , Specification(JsonArray, JsonEmbed, JsonInt, JsonLet, JsonObject, JsonRef, JsonString)
-  , type (:::)
+  ( HasJsonEncodingSpec(EncodingSpec), Module(Module)
+  , Specification(JsonArray, JsonInt, JsonLet, JsonModule, JsonObject, JsonRef, JsonString)
+  , type (:::), type (:=)
   )
-import Data.JsonSpec.Tuple
+import Data.JsonSpec.Codec.Tuple
   ( Field(Field), Ref(Ref), TupleEncoding(toJsonStructure), encode
   )
 import Data.Proxy (Proxy(Proxy))
@@ -31,12 +29,13 @@ data LineItem a = LineItem
   }
 instance HasJsonEncodingSpec (LineItem a) where
   type EncodingSpec (LineItem a) =
-    JsonObject
+    'Module
+      (JsonObject
       '[ "description" ::: JsonString
        , "quantity" ::: JsonInt
-       , "unitPrice" ::: JsonEmbed (EncodingSpec a)
-       , "lineTotal" ::: EncodingSpec a
-       ]
+       , "unitPrice" ::: JsonModule (EncodingSpec a)
+       , "lineTotal" ::: JsonModule (EncodingSpec a)
+       ])
 instance (TupleEncoding a) => TupleEncoding (LineItem a) where
   toJsonStructure li =
     ( Field li.description
@@ -54,11 +53,13 @@ data Invoice a = Invoice
   }
 instance HasJsonEncodingSpec (Invoice a) where
   type EncodingSpec (Invoice a) =
-    JsonLet '[ '("LineItem", JsonEmbed (EncodingSpec (LineItem a))) ]
+    'Module
+      (JsonLet
+      '[ "LineItem" := JsonModule (EncodingSpec (LineItem a)) ]
       (JsonObject
         '[ "invoiceNumber" ::: JsonString
          , "items" ::: JsonArray (JsonRef "LineItem")
-         ])
+         ]))
 instance (TupleEncoding a) => TupleEncoding (Invoice a) where
   toJsonStructure inv =
     ( Field inv.invoiceNumber
@@ -68,7 +69,7 @@ instance (TupleEncoding a) => TupleEncoding (Invoice a) where
 
 newtype Money = Money Int
 instance HasJsonEncodingSpec Money where
-  type EncodingSpec Money = JsonInt
+  type EncodingSpec Money  = 'Module (JsonInt)
 instance TupleEncoding Money where
   toJsonStructure (Money i) = i
 

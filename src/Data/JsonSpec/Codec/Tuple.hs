@@ -3,6 +3,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-|
+  Description : Encode and decode via nested tuples
+
   Tuple-based interpretation of 'Specification'. The purpose of this
   module is to encode and decode Haskell values to and from Aeson
   'Value's, using a nested tuple structure as the intermediate

@@ -19,10 +19,10 @@ import Data.Aeson.Types
   ( FromJSON(parseJSON), Value(Null, Object), Parser, parseEither, withArray
   , withObject, withScientific, withText
   )
-import Data.JsonSpec.Spec (HasJsonDecodingSpec(DecodingSpec), Specification)
 import Data.JsonSpec.Codec.Tuple.Internal
   ( Field(Field), Ref(Ref), Tag(Tag), JStruct, JsonStructure, sym
   )
+import Data.JsonSpec.Spec (HasJsonDecodingSpec(DecodingSpec), Module)
 import Data.Map (Map)
 import Data.Proxy (Proxy)
 import Data.Scientific (Scientific)
@@ -152,7 +152,7 @@ instance
 eitherDecode
   :: forall spec.
      (StructureFromJson (JsonStructure spec))
-   => Proxy (spec :: Specification)
+   => Proxy (spec :: Module)
   -> Value
   -> Either String (JsonStructure spec)
 eitherDecode _spec =

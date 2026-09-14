@@ -11,9 +11,13 @@
 
 module Data.JsonSpec.Spec (
   Specification(..),
+  Module(..),
+  BindingSpec(..),
   FieldSpec(..),
   (:::),
   (::?),
+  (:=),
+  (::=),
   HasJsonEncodingSpec(..),
   HasJsonDecodingSpec(..),
 ) where
@@ -22,47 +26,43 @@ import GHC.TypeLits (Symbol)
 import Prelude ()
 
 {-|
-  Simple DSL for defining type level "specifications" for JSON
-  data. Similar in spirit to (but not isomorphic with) JSON Schema.
+  Type-level AST for JSON structure specifications.
 
-  Intended to be used at the type level using @-XDataKinds@
-
-  Particular codecs (for example 'Data.JsonSpec.Codec.Tuple') interpret
-  these specifications into concrete Haskell representations and
+  Use with @-XDataKinds@. Codecs such as 'Data.JsonSpec.Codec.Tuple'
+  interpret these specs into concrete Haskell types and
   encode/decode strategies.
+
+  Similar in spirit to JSON Schema, but not isomorphic with it.
+  The matching textual language is documented in
+  @docs\/language-spec.md@.
 -}
 data Specification where
   JsonObject :: [FieldSpec] -> Specification
     {-^
-      An object with the specified properties, each having its own
-      specification. This does not yet support optional properties,
-      although a property can be specified as "nullable" using
-      `JsonNullable`
+      Object with a fixed set of fields. Use 'Required' / 'Optional'
+      (or '(:::)' / '(::?)') for each field.
     -}
   JsonString :: Specification
-    {-^ An arbitrary JSON string. -}
+    {-^ Any JSON string. -}
   JsonNum :: Specification
-    {-^ An arbitrary (floating point) JSON number. -}
+    {-^ Any JSON number (floating point). -}
   JsonInt :: Specification
-    {-^ A JSON integer.  -}
+    {-^ A JSON integer. -}
   JsonArray :: Specification -> Specification
-    {-^ A JSON array of values which conform to the given spec. -}
+    {-^ Array whose elements all conform to the given spec. -}
   JsonDict :: Specification -> Specification
     {-^
-      A JSON object used as a dictionary: arbitrary string keys, with every
-      value conforming to the given specification.
+      Object used as a string-keyed map: keys are unrestricted, and
+      every value must conform to the given spec.
 
-      This is distinct from 'JsonObject', which represents a record with
-      statically known fields.
+      Distinct from 'JsonObject', which has statically known field
+      names.
     -}
   JsonBool :: Specification
-    {-^ A JSON boolean value. -}
+    {-^ A JSON boolean. -}
   JsonNullable :: Specification -> Specification
     {-^
-      A value that can either be `null`, or else a value conforming to
-      the specification.
-
-      E.g.:
+      Either JSON @null@, or a value conforming to the given spec.
 
       > type SpecWithNullableField =
       >   JsonObject '[
@@ -71,11 +71,8 @@ data Specification where
     -}
   JsonEither :: [Specification] -> Specification
     {-^
-      One of several different specifications. Corresponds to json-schema
-      "oneOf". Useful for encoding sum types. Takes a type-level list of
-      specs.
-
-      Example:
+      Exactly one of the given alternatives (json-schema @oneOf@).
+      Commonly used for sum types.
 
       > data MyType
       >   = Foo Text
@@ -83,104 +80,119 @@ data Specification where
       >   | Baz UTCTime
       > instance HasJsonEncodingSpec MyType where
       >   type EncodingSpec MyType =
-      >     JsonEither
-      >       '[
-      >         JsonObject '[
-      >           Required "tag" (JsonTag "foo"),
-      >           Required "content" JsonString
-      >         ],
-      >         JsonObject '[
-      >           Required "tag" (JsonTag "bar"),
-      >           Required "content" JsonInt
-      >         ],
-      >         JsonObject '[
-      >           Required "tag" (JsonTag "baz"),
-      >           Required "content" JsonDateTime
-      >         ]
-      >       ]
+      >     'Module
+      >       (JsonEither
+      >         '[
+      >           JsonObject '[
+      >             Required "tag" (JsonTag "foo"),
+      >             Required "content" JsonString
+      >           ],
+      >           JsonObject '[
+      >             Required "tag" (JsonTag "bar"),
+      >             Required "content" JsonInt
+      >           ],
+      >           JsonObject '[
+      >             Required "tag" (JsonTag "baz"),
+      >             Required "content" JsonDateTime
+      >           ]
+      >         ])
     -}
   JsonTag :: Symbol -> Specification
-    {-^ A constant string value -}
+    {-^ A constant string value. -}
   JsonDateTime :: Specification
     {-^
-      A JSON string formatted as an ISO-8601 string. In Haskell this
-      corresponds to `Data.Time.UTCTime`, and in json-schema it corresponds
-      to the "date-time" format.
+      ISO-8601 date-time string. Maps to 'Data.Time.UTCTime' in
+      Haskell and to the json-schema @"date-time"@ format.
     -}
-  JsonLet :: [(Symbol, Specification)] -> Specification -> Specification
+  JsonLet :: [BindingSpec] -> Specification -> Specification
     {-^
-      A "let" expression. This is useful for giving names to types, which can
-      then be used in the generated code.
+      Bind names, then use them in the body via 'JsonRef'.
 
-      This is also useful to shorten repetitive type definitions. For example,
-      this repetitive definition:
+      'TypeBind' is open: the RHS can refer to sibling bindings and
+      outer lets. 'ModuleBind' is closed: the RHS is a 'Module' and
+      cannot see outer names.
 
-      > type Triangle =
-      >   JsonObject '[
-      >     Required "vertex1" (JsonObject '[
-      >       Required "x" JsonInt,
-      >       Required "y" JsonInt,
-      >       Required "z" JsonInt
-      >     ]),
-      >     Required "vertex2" (JsonObject '[
-      >       Required "x" JsonInt,
-      >       Required "y" JsonInt,
-      >       Required "z" JsonInt
-      >     ]),
-      >     Required "vertex3" (JsonObject '[
-      >       Required "x" JsonInt),
-      >       Required "y" JsonInt),
-      >       Required "z" JsonInt)
-      >     ])
-      >   ]
-
-      Can be written more concisely as:
+      Bindings in the same let may refer to each other, including
+      recursively.
 
       > type Triangle =
       >   JsonLet
       >     '[
-      >       '("Vertex", JsonObject '[
-      >          ('x', JsonInt),
-      >          ('y', JsonInt),
-      >          ('z', JsonInt)
-      >        ])
-      >      ]
-      >      (JsonObject '[
-      >        "vertex1" ::: JsonRef "Vertex",
-      >        "vertex2" ::: JsonRef "Vertex",
-      >        "vertex3" ::: JsonRef "Vertex"
-      >      ])
+      >       "Vertex" := JsonObject '[
+      >         "x" ::: JsonInt,
+      >         "y" ::: JsonInt,
+      >         "z" ::: JsonInt
+      >       ]
+      >     ]
+      >     (JsonObject '[
+      >       "vertex1" ::: JsonRef "Vertex",
+      >       "vertex2" ::: JsonRef "Vertex",
+      >       "vertex3" ::: JsonRef "Vertex"
+      >     ])
 
-      Another use is to define recursive types:
+      Recursive:
 
       > type LabelledTree =
       >   JsonLet
       >     '[
-      >       '("LabelledTree", JsonObject '[
+      >       "LabelledTree" := JsonObject '[
       >         "label" ::: JsonString,
       >         "children" ::: JsonArray (JsonRef "LabelledTree")
-      >        ])
-      >      ]
+      >       ]
+      >     ]
       >     (JsonRef "LabelledTree")
+
+      Closed nested binding ('ModuleBind' / '(::=)'):
+
+      > type Invoice =
+      >   JsonLet
+      >     '[
+      >       "Id" := JsonString,
+      >       "Tax" ::=
+      >         'Module
+      >           (JsonLet
+      >             '[ "Rate" := JsonNum ]
+      >             (JsonObject '[ "rate" ::: JsonRef "Rate" ]))
+      >     ]
+      >     (JsonObject '[
+      >       "id" ::: JsonRef "Id",
+      >       "tax" ::: JsonRef "Tax"
+      >     ])
     -}
   JsonRef :: Symbol -> Specification
     {-^
-      A reference to a specification which has been defined in a surrounding
-      'JsonLet'.
+      Reference a name bound by an enclosing 'JsonLet'.
+
+      Resolution uses the environment from the binding site, not
+      from the reference site.
+    -}
+  JsonModule :: Module -> Specification
+    {-^
+      Embed a closed 'Module' inside another specification. The
+      embedded module cannot see names from any outer 'JsonLet'.
+
+      Typical use: nest another type's 'EncodingSpec' (itself a
+      'Module') without exposing the outer environment to it.
+
+      > type EncodingSpec (Wrapper a) =
+      >   'Module
+      >     (JsonLet
+      >       '[ "Unused" := JsonString ]
+      >       (JsonObject '[
+      >         "payload" ::: JsonModule (EncodingSpec a)
+      >       ]))
     -}
   JsonRaw :: Specification
-    {-^ Some raw, uninterpreted JSON value -}
+    {-^ An opaque JSON value; not further interpreted. -}
   JsonAnnotated :: forall k. [(Symbol, k)] -> Specification -> Specification
     {-^
-      An annotation on a specification. This is purely for documentation
-      purposes and has no effect on encoding or decoding. The annotations
-      are a list of key-value pairs at the type level. Keys are always
-      symbols (type-level strings). Values can be any kind @k@: strings
-      ('Symbol'), booleans ('Bool'), natural numbers ('Nat'), or any
-      custom promoted type the user defines. Within one list, all values
-      must have the same kind.
+      Attach documentation metadata to a specification. Has no effect
+      on encoding or decoding.
 
-      E.g.:
+      Annotations are type-level key-value pairs. Keys are always
+      'Symbol'. Values share a single kind @k@ within one list —
+      commonly 'Symbol', 'Bool', 'Nat', or a user-defined promoted
+      type.
 
       > type AnnotatedUser =
       >   JsonAnnotated
@@ -197,10 +209,42 @@ data Specification where
     -}
 
 
-{-| Specify a field in an object.  -}
+{-|
+  A closed specification: no free references to an outer
+  environment.
+
+  Corresponds to @module@ in the textual language. Also the return
+  kind of 'EncodingSpec' / 'DecodingSpec', so associated codecs are
+  closed by construction.
+-}
+data Module = Module Specification
+
+
+{-|
+  A named binding in a 'JsonLet'.
+
+  'TypeBind' is open; 'ModuleBind' is closed. Neither introduces a
+  namespace — there is no @M.N@ path syntax.
+-}
+data BindingSpec
+  = TypeBind Symbol Specification
+    {-^
+      Open binding (@type Name = …@). May refer to siblings in this
+      let and to names from outer lets.
+    -}
+  | ModuleBind Symbol Module
+    {-^
+      Closed binding (@module Name = …@). The RHS is a 'Module' and
+      cannot see outer names. Useful with 'EncodingSpec':
+
+      > "Item" ::= EncodingSpec LineItem
+    -}
+
+
+{-| A field in a 'JsonObject'. -}
 data FieldSpec
-  = Required Symbol Specification {-^ The field is required -}
-  | Optional Symbol Specification {-^ The field is optionsl -}
+  = Required Symbol Specification {-^ Required field. -}
+  | Optional Symbol Specification {-^ Optional field. -}
 
 
 {-| Alias for 'Required'. -}
@@ -211,19 +255,43 @@ type (:::) = Required
 type (::?) = Optional
 
 
-{- |
-  Types of this class can be associated with a type-level encoding
-  'Specification'.
+{-| Alias for 'TypeBind'. -}
+type (:=) = TypeBind
+
+
+{-| Alias for 'ModuleBind'. -}
+type (::=) = ModuleBind
+
+
+{-|
+  Types that provide a closed encoding 'Module'.
+
+  Closed means the specification is self-contained: it cannot
+  reference names from any outer 'JsonLet'. That is why the
+  associated type has kind 'Module' rather than 'Specification'.
 -}
 class HasJsonEncodingSpec a where
-  {- | The encoding specification. -}
-  type EncodingSpec a :: Specification
+  {-|
+    The encoding specification.
+
+    Kind 'Module' enforces closedness: no free references to an
+    outer environment.
+  -}
+  type EncodingSpec a :: Module
 
 
-{- |
-  Types of this class can be associated with a type-level decoding
-  'Specification'.
+{-|
+  Types that provide a closed decoding 'Module'.
+
+  Closed means the specification is self-contained: it cannot
+  reference names from any outer 'JsonLet'. That is why the
+  associated type has kind 'Module' rather than 'Specification'.
 -}
 class HasJsonDecodingSpec a where
-  {- | The decoding 'Specification'. -}
-  type DecodingSpec a :: Specification
+  {-|
+    The decoding specification.
+
+    Kind 'Module' enforces closedness: no free references to an
+    outer environment.
+  -}
+  type DecodingSpec a :: Module

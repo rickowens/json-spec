@@ -65,7 +65,7 @@ instance TupleDecoding User where
 ```
 
 Import `"Data.JsonSpec"` for the specification language and
-`"Data.JsonSpec.Tuple"` for the tuple codec (`Field`, `TupleEncoding`,
+`"Data.JsonSpec.Codec.Tuple"` for the tuple codec (`Field`, `TupleEncoding`,
 `SpecJson`, etc.).
 
 For more examples, take a look at the test suite.

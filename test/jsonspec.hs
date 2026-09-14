@@ -28,12 +28,13 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.ByteString.Lazy (ByteString)
 import Data.Either (isLeft)
 import Data.JsonSpec
-  ( FieldSpec(Optional, Required), HasJsonDecodingSpec(DecodingSpec)
-  , HasJsonEncodingSpec(EncodingSpec)
+  ( BindingSpec(ModuleBind, TypeBind), FieldSpec(Optional, Required)
+  , HasJsonDecodingSpec(DecodingSpec), HasJsonEncodingSpec(EncodingSpec)
+  , Module(Module)
   , Specification
     ( JsonAnnotated, JsonArray, JsonBool, JsonDateTime, JsonDict, JsonEither
-    , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
-    , JsonString, JsonTag
+    , JsonInt, JsonLet, JsonModule, JsonNullable, JsonNum, JsonObject, JsonRaw
+    , JsonRef, JsonString, JsonTag
     )
   , type (:::), type (::?)
   )
@@ -379,7 +380,7 @@ main =
             actual :: A.Value
             actual =
               encode
-                (Proxy @(JsonDict JsonInt))
+                (Proxy @('Module (JsonDict JsonInt)))
                 Map.empty
 
             expected :: A.Value
@@ -399,13 +400,13 @@ main =
             decoded :: Either String (Map Text Int)
             decoded =
               eitherDecode
-                (Proxy @(JsonDict JsonInt))
+                (Proxy @('Module (JsonDict JsonInt)))
                 raw
 
             encoded :: Either String A.Value
             encoded =
               fmap
-                (encode (Proxy @(JsonDict JsonInt)))
+                (encode (Proxy @('Module (JsonDict JsonInt))))
                 decoded
 
             expected :: Either String A.Value
@@ -441,10 +442,10 @@ main =
                      ())))
             actual =
               eitherDecode
-                (Proxy @(JsonDict (JsonObject
+                (Proxy @('Module (JsonDict (JsonObject
                   '[ "foo" ::: JsonString
                    , "bar" ::: JsonInt
-                   ])))
+                   ]))))
                 raw
 
             expected
@@ -483,7 +484,7 @@ main =
             actual :: Either String (Map Text (Maybe Text))
             actual =
               eitherDecode
-                (Proxy @(JsonDict (JsonNullable JsonString)))
+                (Proxy @('Module (JsonDict (JsonNullable JsonString))))
                 raw
 
             expected :: Either String (Map Text (Maybe Text))
@@ -501,7 +502,7 @@ main =
             actual :: Either String (Map Text Int)
             actual =
               eitherDecode
-                (Proxy @(JsonDict JsonInt))
+                (Proxy @('Module (JsonDict JsonInt)))
                 (A.object [("bad", A.String "not an int")])
           in
             actual `shouldSatisfy` isLeft
@@ -511,7 +512,7 @@ main =
             actual :: Either String (Map Text Int)
             actual =
               eitherDecode
-                (Proxy @(JsonDict JsonInt))
+                (Proxy @('Module (JsonDict JsonInt)))
                 (A.String "not an object")
           in
             actual `shouldSatisfy` isLeft
@@ -524,7 +525,7 @@ main =
                    (Field "attrs" (Map Text Int), ())
             actual =
               eitherDecode
-                (Proxy @(JsonObject '[ "attrs" ::: JsonDict JsonInt ]))
+                (Proxy @('Module (JsonObject '[ "attrs" ::: JsonDict JsonInt ])))
                 ( A.object
                     [ ( "attrs"
                       , A.object
@@ -571,7 +572,7 @@ main =
               A.eitherDecode
                 "{ \"foo\": { \"bar\": \"barval\", \"baz\": [ \"qux\", 1, false ] } }"
               >>=
-                eitherDecode (Proxy @( JsonObject '[ "foo" ::: JsonRaw ]))
+                eitherDecode (Proxy @('Module (JsonObject '[ "foo" ::: JsonRaw ])))
           in
             actual `shouldBe` expected
         it "encodes" $
@@ -585,7 +586,7 @@ main =
             actual =
               Just $
                 encode
-                  (Proxy @( JsonObject '[ Required "foo" JsonRaw ]))
+                  (Proxy @('Module (JsonObject '[ Required "foo" JsonRaw ])))
                   (Field @"foo"
                     (
                       A.object
@@ -871,7 +872,8 @@ data TestSum
   deriving FromJSON via (SpecJson TestSum)
 instance HasJsonEncodingSpec TestSum where
   type EncodingSpec TestSum =
-    JsonEither
+    'Module
+      (JsonEither
       '[
         JsonObject '[
           Required "tag" (JsonTag "a"),
@@ -883,7 +885,7 @@ instance HasJsonEncodingSpec TestSum where
         JsonObject '[
           Required "tag" (JsonTag "b")
         ]
-      ]
+      ])
 instance TupleEncoding TestSum where
   toJsonStructure = \case
     TestA i t ->
@@ -926,10 +928,11 @@ data TestOptionalHasField = TestOptionalHasField
   deriving FromJSON via (SpecJson TestOptionalHasField)
 instance HasJsonDecodingSpec TestOptionalHasField where
   type DecodingSpec TestOptionalHasField =
-    JsonObject
-     '[ "foo" ::? JsonString
-      , "bar" ::? JsonNullable JsonString
-      ]
+    'Module
+      (JsonObject
+        '[ "foo" ::? JsonString
+         , "bar" ::? JsonNullable JsonString
+         ])
 instance TupleDecoding TestOptionalHasField where
   fromJsonStructure v =
     pure
@@ -951,14 +954,15 @@ data TestObj = TestObj
   deriving FromJSON via (SpecJson TestObj)
 instance HasJsonEncodingSpec TestObj where
   type EncodingSpec TestObj =
-    JsonObject
+    'Module
+      (JsonObject
       '[
         Required "foo" JsonString,
         Optional "bar" JsonNum,
-        Required "baz" (EncodingSpec TestSubObj),
+        Required "baz" (JsonModule (EncodingSpec TestSubObj)),
         Required "qux" (JsonNullable JsonInt),
         Required "qoo" JsonBool
-      ]
+      ])
 instance TupleEncoding TestObj where
   toJsonStructure TestObj { foo , bar , baz, qux, qoo } =
     (Field @"foo" foo,
@@ -989,10 +993,11 @@ data TestSubObj = TestSubObj
   deriving stock (Show, Eq)
 instance HasJsonEncodingSpec TestSubObj where
   type EncodingSpec TestSubObj =
-    JsonObject
+    'Module
+      (JsonObject
       '[ Required "foo" JsonString
        , Required "bar" JsonInt
-       ]
+       ])
 instance TupleEncoding TestSubObj where
   toJsonStructure TestSubObj { foo2 , bar2 } =
     (Field @"foo" foo2,
@@ -1017,10 +1022,11 @@ data User = User
   deriving (ToJSON, FromJSON) via (SpecJson User)
 instance HasJsonEncodingSpec User where
   type EncodingSpec User =
-    JsonObject
+    'Module
+      (JsonObject
       '[ Required "name" JsonString
        , Required "last-login" JsonDateTime
-       ]
+       ])
 instance TupleEncoding User where
   toJsonStructure user =
     (Field @"name" (name user),
@@ -1046,11 +1052,12 @@ data Vertex = Vertex
   deriving (ToJSON, FromJSON) via (SpecJson Vertex)
 instance HasJsonEncodingSpec Vertex where
   type EncodingSpec Vertex =
-    JsonObject
+    'Module
+      (JsonObject
       '[ Required "x" JsonInt
        , Required "y" JsonInt
        , Required "z" JsonInt
-       ]
+       ])
 instance TupleEncoding Vertex where
   toJsonStructure Vertex {x, y, z} =
     (Field @"x" x,
@@ -1078,13 +1085,14 @@ data Triangle = Triangle
   deriving (ToJSON, FromJSON) via (SpecJson Triangle)
 instance HasJsonEncodingSpec Triangle where
   type EncodingSpec Triangle =
-    JsonLet
-      '[ '("Vertex", EncodingSpec Vertex) ]
+    'Module
+      (JsonLet
+      '[ ModuleBind "Vertex" (EncodingSpec Vertex) ]
       (JsonObject
         '[ Required "vertex1" (JsonRef "Vertex")
          , Required "vertex2" (JsonRef "Vertex")
          , Required "vertex3" (JsonRef "Vertex")
-         ])
+         ]))
 instance TupleEncoding Triangle where
   toJsonStructure Triangle {vertex1, vertex2, vertex3} =
     (Field @"vertex1" (Ref $ toJsonStructure vertex1),
@@ -1114,15 +1122,16 @@ data LabelledTree = LabelledTree
   deriving (ToJSON, FromJSON) via (SpecJson LabelledTree)
 instance HasJsonEncodingSpec LabelledTree where
   type EncodingSpec LabelledTree =
-      JsonLet
-        '[ '("LabelledTree",
-               JsonObject
-                 '[ Required "label" JsonString
-                  , Required "children" (JsonArray (JsonRef "LabelledTree"))
-                  ]
-            )
+    'Module
+      (JsonLet
+        '[ TypeBind "LabelledTree"
+             (JsonObject
+               '[ Required "label" JsonString
+                , Required "children" (JsonArray (JsonRef "LabelledTree"))
+                ]
+             )
          ]
-        (JsonRef "LabelledTree")
+        (JsonRef "LabelledTree"))
 instance TupleEncoding LabelledTree where
   toJsonStructure LabelledTree {label , children } =
     Ref
@@ -1158,12 +1167,13 @@ data TestOptionality = TestOptionality
   deriving stock (Eq)
 instance HasJsonEncodingSpec TestOptionality where
   type EncodingSpec TestOptionality =
-    JsonObject
+    'Module
+      (JsonObject
       '[ "foo" ::? JsonInt
        , Required "bar" (JsonNullable JsonInt)
        , Optional "baz" (JsonNullable JsonInt)
        , Required "qux" JsonInt
-       ]
+       ])
 instance TupleEncoding TestOptionality where
   toJsonStructure TestOptionality { toFoo , toBar , toBaz , toQux } =
     (fmap (Field @"foo") toFoo,
@@ -1193,14 +1203,15 @@ data TestHasField = TestHasField
   deriving (FromJSON) via (SpecJson TestHasField)
 instance HasJsonDecodingSpec TestHasField where
   type DecodingSpec TestHasField =
-    JsonObject
-      '[ "foo" ::: JsonString
-       , "bar" ::: JsonInt
-       , "baz" ::: JsonObject
-                    '[ "a_string" ::: JsonString
-                     ,   "an_int" ::: JsonInt
-                     ]
-       ]
+    'Module
+      (JsonObject
+        '[ "foo" ::: JsonString
+         , "bar" ::: JsonInt
+         , "baz" ::: JsonObject
+                       '[ "a_string" ::: JsonString
+                        ,   "an_int" ::: JsonInt
+                        ]
+         ])
 instance TupleDecoding TestHasField where
   fromJsonStructure val =
     pure
@@ -1226,11 +1237,12 @@ newtype MRec2 = MRec2 [MRec1]
   deriving stock (Show, Eq)
 instance HasJsonEncodingSpec MRec1 where
   type EncodingSpec MRec1 =
-    JsonLet
-     '[ '("one", JsonArray (JsonRef "two"))
-      , '("two", JsonArray (JsonRef "one"))
+    'Module
+      (JsonLet
+     '[ TypeBind "one" (JsonArray (JsonRef "two"))
+      , TypeBind "two" (JsonArray (JsonRef "one"))
       ]
-      (JsonRef "one")
+      (JsonRef "one"))
 instance TupleEncoding MRec1 where
   toJsonStructure (MRec1 m2s) =
     Ref
@@ -1255,16 +1267,16 @@ instance TupleDecoding MRec1 where
 {- ========================================================================== -}
 
 type SharedRecSpecs =
-  '[ '( "three"
-      , JsonObject
+  '[ TypeBind "three"
+       (JsonObject
          '[ "foo" ::: JsonNullable (JsonRef "four")
           ]
-      )
-   , '( "four"
-      , JsonObject
+       )
+   , TypeBind "four"
+       (JsonObject
          '[ "bar" ::: JsonRef "three"
           ]
-      )
+       )
    ]
 
 
@@ -1275,7 +1287,8 @@ newtype MRec3 = MRec3
   deriving (ToJSON, FromJSON) via (SpecJson MRec3)
 instance HasJsonEncodingSpec MRec3 where
   type EncodingSpec MRec3 =
-    JsonLet SharedRecSpecs (JsonRef "three")
+    'Module
+      (JsonLet SharedRecSpecs (JsonRef "three"))
 instance TupleEncoding MRec3 where
   toJsonStructure MRec3 { foo } =
     Ref
@@ -1296,7 +1309,8 @@ newtype MRec4 = MRec4
   deriving stock (Show, Eq)
 instance HasJsonEncodingSpec MRec4 where
   type EncodingSpec MRec4 =
-    JsonLet SharedRecSpecs (JsonRef "four")
+    'Module
+      (JsonLet SharedRecSpecs (JsonRef "four"))
 instance TupleEncoding MRec4 where
   toJsonStructure MRec4 { bar } =
     Ref
@@ -1324,14 +1338,15 @@ data AnnotatedUser = AnnotatedUser
   deriving (ToJSON, FromJSON) via (SpecJson AnnotatedUser)
 instance HasJsonEncodingSpec AnnotatedUser where
   type EncodingSpec AnnotatedUser =
-    JsonAnnotated
+    'Module
+      (JsonAnnotated
       '[ '("description", "A user with a name and age")
        , '("example", "{\"name\": \"alice\", \"age\": 30}")
        ]
       (JsonObject
         '[ Required "name" JsonString
          , Required "age" JsonInt
-         ])
+         ]))
 instance TupleEncoding AnnotatedUser where
   toJsonStructure AnnotatedUser { auName, auAge } =
     (Field @"name" auName,
@@ -1357,13 +1372,14 @@ data AnnotatedVertex = AnnotatedVertex
   deriving (ToJSON, FromJSON) via (SpecJson AnnotatedVertex)
 instance HasJsonEncodingSpec AnnotatedVertex where
   type EncodingSpec AnnotatedVertex =
-    JsonAnnotated
+    'Module
+      (JsonAnnotated
       '[ '("description", "A 3D vertex") ]
       (JsonObject
         '[ Required "x" JsonInt
          , Required "y" JsonInt
          , Required "z" JsonInt
-         ])
+         ]))
 instance TupleEncoding AnnotatedVertex where
   toJsonStructure AnnotatedVertex { avX, avY, avZ } =
     (Field @"x" avX,
@@ -1391,15 +1407,16 @@ data AnnotatedTriangle = AnnotatedTriangle
   deriving (ToJSON, FromJSON) via (SpecJson AnnotatedTriangle)
 instance HasJsonEncodingSpec AnnotatedTriangle where
   type EncodingSpec AnnotatedTriangle =
-    JsonLet
-      '[ '("Vertex",
-             JsonAnnotated
-               '[ '("description", "A 3D vertex used in shapes") ]
-               (JsonObject
-                 '[ Required "x" JsonInt
-                  , Required "y" JsonInt
-                  , Required "z" JsonInt
-                  ]))
+    'Module
+      (JsonLet
+      '[ TypeBind "Vertex"
+           (JsonAnnotated
+             '[ '("description", "A 3D vertex used in shapes") ]
+             (JsonObject
+               '[ Required "x" JsonInt
+                , Required "y" JsonInt
+                , Required "z" JsonInt
+                ]))
        ]
       (JsonAnnotated
         '[ '("description", "A triangle with three vertices") ]
@@ -1407,7 +1424,7 @@ instance HasJsonEncodingSpec AnnotatedTriangle where
           '[ Required "vertex1" (JsonRef "Vertex")
            , Required "vertex2" (JsonRef "Vertex")
            , Required "vertex3" (JsonRef "Vertex")
-           ]))
+           ])))
 instance TupleEncoding AnnotatedTriangle where
   toJsonStructure AnnotatedTriangle { atVertex1, atVertex2, atVertex3 } =
     (Field @"vertex1" (Ref $ toJsonStructure atVertex1),
@@ -1436,11 +1453,12 @@ data AnnotatedWithBool = AnnotatedWithBool
   deriving (ToJSON, FromJSON) via (SpecJson AnnotatedWithBool)
 instance HasJsonEncodingSpec AnnotatedWithBool where
   type EncodingSpec AnnotatedWithBool =
-    JsonAnnotated
+    'Module
+      (JsonAnnotated
       '[ '("readOnly", 'True)
        , '("deprecated", 'False)
        ]
-      (JsonObject '[ Required "name" JsonString ])
+      (JsonObject '[ Required "name" JsonString ]))
 instance TupleEncoding AnnotatedWithBool where
   toJsonStructure AnnotatedWithBool { awbName } =
     (Field @"name" awbName,

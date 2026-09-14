@@ -15,10 +15,10 @@ module Data.JsonSpec.Codec.Tuple.Encode (
 ) where
 
 import Data.Aeson (ToJSON(toJSON), Value)
-import Data.JsonSpec.Spec (HasJsonEncodingSpec(EncodingSpec))
 import Data.JsonSpec.Codec.Tuple.Internal
   ( Field(Field), Ref(unRef), JStruct, JsonStructure, Tag, sym
   )
+import Data.JsonSpec.Spec (HasJsonEncodingSpec(EncodingSpec))
 import Data.Map (Map)
 import Data.Proxy (Proxy(Proxy))
 import Data.Scientific (Scientific)
@@ -40,7 +40,6 @@ import qualified Data.Map as Map
 class (HasJsonEncodingSpec a) => TupleEncoding a where
   {- | Encode the value into the structure appropriate for the specification. -}
   toJsonStructure :: a -> JsonStructure (EncodingSpec a)
-
 
 
 {- |

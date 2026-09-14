@@ -22,11 +22,12 @@ module Data.JsonSpec.Codec.Tuple.Internal (
 
 import Data.Aeson (Value)
 import Data.JsonSpec.Spec
-  ( FieldSpec(Optional, Required)
+  ( BindingSpec(ModuleBind, TypeBind), FieldSpec(Optional, Required)
+  , Module(Module)
   , Specification
     ( JsonAnnotated, JsonArray, JsonBool, JsonDateTime, JsonDict, JsonEither
-    , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
-    , JsonString, JsonTag
+    , JsonInt, JsonLet, JsonModule, JsonNullable, JsonNum, JsonObject, JsonRaw
+    , JsonRef, JsonString, JsonTag
     )
   )
 import Data.Kind (Type)
@@ -66,8 +67,8 @@ import qualified GHC.TypeError as GE
   tuple type, then they get a JSON encoding to/from their type that is
   guaranteed to be compliant with the 'Specification'
 -}
-type family JsonStructure (spec :: Specification) where
-  JsonStructure spec = JStruct '[] spec
+type family JsonStructure (spec :: Module) where
+  JsonStructure ('Module s) = JStruct '[] s
 
 
 {-|
@@ -153,11 +154,22 @@ type family
     JStruct env JsonDateTime = UTCTime
     JStruct env (JsonNullable spec) = Maybe (JStruct env spec)
     JStruct env (JsonLet defs spec) =
-      JStruct (defs : env) spec
+      JStruct (BindingsToFrame defs : env) spec
     JStruct env (JsonRef ref) = LookupRef env env ref
+    JStruct env (JsonModule m) =
+      JsonStructure m
     JStruct env JsonRaw = Value
     JStruct env (JsonAnnotated _annotations spec) =
       JStruct env spec
+
+
+{-| Lower 'BindingSpec's to the env-frame representation. -}
+type family BindingsToFrame (bs :: [BindingSpec]) :: [(Symbol, Specification)] where
+  BindingsToFrame '[] = '[]
+  BindingsToFrame (TypeBind n s : more) =
+    '(n, s) : BindingsToFrame more
+  BindingsToFrame (ModuleBind n s : more) =
+    '(n, JsonModule s) : BindingsToFrame more
 
 
 {-|
@@ -197,7 +209,7 @@ type family
   > instance HasJsonEncodingSpec Foo where
   >   type EncodingSpec Foo =
   >     JsonLet
-  >       '[ '("Foo", JsonArray (JsonRef "Foo")) ]
+  >       '[ "Foo" := JsonArray (JsonRef "Foo") ]
   >       (JsonRef "Foo")
   >   toJsonStructure (Foo fs) =
   >     Ref [ toJsonStructure <$> fs ]

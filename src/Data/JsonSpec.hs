@@ -1,6 +1,8 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 
 {-|
+  Description : Type-level JSON specifications
+
   This module provides a way to specify the shape of your JSON data at
   the type level.
 
@@ -14,10 +16,11 @@
   >   deriving (ToJSON, FromJSON) via (SpecJson User)
   > instance HasJsonEncodingSpec User where
   >   type EncodingSpec User =
-  >     JsonObject '[
-  >       Required "name" JsonString,
-  >       Required "last-login" JsonDateTime
-  >     ]
+  >     'Module
+  >       (JsonObject '[
+  >         Required "name" JsonString,
+  >         Required "last-login" JsonDateTime
+  >       ])
   > instance TupleEncoding User where
   >   toJsonStructure user =
   >     (Field @"name" (name user),
@@ -68,28 +71,32 @@
 
   For the tuple-based encoding/decoding interpretation of a
   'Specification', see "Data.JsonSpec.Codec.Tuple".
-
 -}
 module Data.JsonSpec (
   -- * Writing specifications
   Specification(..),
+  Module(..),
+  BindingSpec(..),
   (:::),
   (::?),
+  (:=),
+  (::=),
   FieldSpec(..),
 
-  -- * Associating a type with a Specification
+  -- * Associating a type with a Module
   HasJsonEncodingSpec(..),
   HasJsonDecodingSpec(..),
 ) where
 
 import Data.JsonSpec.Spec
-  ( FieldSpec(Optional, Required), HasJsonDecodingSpec(DecodingSpec)
-  , HasJsonEncodingSpec(EncodingSpec)
+  ( BindingSpec(ModuleBind, TypeBind), FieldSpec(Optional, Required)
+  , HasJsonDecodingSpec(DecodingSpec), HasJsonEncodingSpec(EncodingSpec)
+  , Module(Module)
   , Specification
     ( JsonAnnotated, JsonArray, JsonBool, JsonDateTime, JsonDict, JsonEither
-    , JsonInt, JsonLet, JsonNullable, JsonNum, JsonObject, JsonRaw, JsonRef
-    , JsonString, JsonTag
+    , JsonInt, JsonLet, JsonModule, JsonNullable, JsonNum, JsonObject, JsonRaw
+    , JsonRef, JsonString, JsonTag
     )
-  , type (:::), type (::?)
+  , type (:::), type (::=), type (::?), type (:=)
   )
 

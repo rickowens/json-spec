@@ -5,19 +5,17 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -fdefer-type-errors -Wno-error=deferred-type-errors #-}
-
 module Main (main) where
 
 import Data.JsonSpec
-  ( HasJsonEncodingSpec(EncodingSpec)
+  ( HasJsonEncodingSpec(EncodingSpec), Module(Module)
   , Specification
-    ( JsonArray, JsonEmbed, JsonInt, JsonLet, JsonNum, JsonObject, JsonRef
+    ( JsonArray, JsonInt, JsonLet, JsonModule, JsonNum, JsonObject, JsonRef
     , JsonString
     )
-  , type (:::)
+  , type (:::), type (::=), type (:=)
   )
-import Data.JsonSpec.Tuple
+import Data.JsonSpec.Codec.Tuple
   ( Field(Field), Ref(Ref), TupleEncoding(toJsonStructure), encode
   )
 import Data.Proxy (Proxy(Proxy))
@@ -31,10 +29,11 @@ data Money = Money
   }
 instance HasJsonEncodingSpec Money where
   type EncodingSpec Money =
-    JsonObject
+    'Module
+      (JsonObject
       '[ "currency" ::: JsonString
        , "amount" ::: JsonNum
-       ]
+       ])
 instance TupleEncoding Money where
   toJsonStructure money =
     ( Field money.currency
@@ -49,15 +48,16 @@ data LineItem = LineItem
   }
 instance HasJsonEncodingSpec LineItem where
   type EncodingSpec LineItem =
-    JsonLet
-      '[ '("Money", EncodingSpec Money) ]
+    'Module
+      (JsonLet
+      '[ "Money" ::= EncodingSpec Money ]
       ( JsonObject
           '[ "description" ::: JsonString
            , "quantity" ::: JsonInt
            , "unitPrice" ::: JsonRef "Money"
            , "lineTotal" ::: JsonRef "Money"
            ]
-      )
+      ))
 instance TupleEncoding LineItem where
   toJsonStructure li =
     ( Field li.description
@@ -73,13 +73,14 @@ data Invoice = Invoice
   }
 instance HasJsonEncodingSpec Invoice where
   type EncodingSpec Invoice =
-    JsonLet
-      '[ '("LineItem", JsonEmbed (EncodingSpec LineItem)) ]
+    'Module
+      (JsonLet
+      '[ "LineItem" := JsonModule (EncodingSpec LineItem) ]
       (JsonObject
         '[ "invoiceNumber" ::: JsonString
          , "items" ::: JsonArray (JsonRef "LineItem")
          , "featured" ::: JsonArray (JsonRef "LineItem")
-         ])
+         ]))
 instance TupleEncoding Invoice where
   toJsonStructure inv =
     ( Field inv.invoiceNumber
